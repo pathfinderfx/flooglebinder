@@ -1,0 +1,558 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Flooglebinder Ltd - FX Command Centre</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+* { margin:0; padding:0; box-sizing:border-box; }
+body { background:#0b111e; color:#e2e8f0; font-family:'DM Sans',sans-serif; min-height:100vh; }
+::-webkit-scrollbar { width:6px; height:6px; }
+::-webkit-scrollbar-track { background:#0f172a; }
+::-webkit-scrollbar-thumb { background:#334155; border-radius:3px; }
+.mono { font-family:'DM Mono',monospace; }
+#app { max-width:1200px; margin:0 auto; padding:24px 28px; }
+.kpi-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(170px,1fr)); gap:10px; margin-bottom:14px; }
+.card { background:linear-gradient(145deg,#1a2332,#141d2b); border-radius:12px; border:1px solid #ffffff08; }
+.kpi-card { padding:14px; }
+.kpi-label { font-size:10px; color:#64748b; text-transform:uppercase; letter-spacing:1.2px; font-family:'DM Mono',monospace; margin-bottom:6px; }
+.kpi-value { font-size:22px; font-weight:700; }
+.kpi-sub { font-size:11px; margin-top:2px; font-weight:500; }
+.tabs { display:flex; gap:2px; margin-bottom:14px; background:#1e293b; border-radius:8px; padding:3px; overflow-x:auto; }
+.tab { padding:7px 14px; border-radius:6px; border:none; cursor:pointer; font-size:12px; font-weight:500; font-family:'DM Sans',sans-serif; white-space:nowrap; background:transparent; color:#94a3b8; }
+.tab.active { background:#38bdf8; color:#0b111e; }
+.supplier-row { margin-bottom:8px; }
+.supplier-header { padding:12px 14px; cursor:pointer; display:flex; justify-content:space-between; align-items:center; }
+.supplier-detail { border-top:1px solid #ffffff08; padding:0 14px 12px; overflow-x:auto; }
+table { width:100%; border-collapse:collapse; font-size:12px; }
+th { padding:8px 6px; text-align:left; border-bottom:1px solid #ffffff10; font-weight:500; font-size:10px; color:#475569; text-transform:uppercase; letter-spacing:1px; }
+td { padding:8px 6px; border-bottom:1px solid #ffffff06; }
+.badge { padding:2px 6px; border-radius:3px; font-size:10px; font-weight:600; white-space:nowrap; }
+.coverage-bar { height:18px; border-radius:9px; background:#0f172a; display:flex; overflow:hidden; margin:6px 0; }
+.alert-box { background:#f59e0b10; border:1px solid #f59e0b25; border-radius:8px; padding:10px 14px; margin-bottom:14px; }
+.login-wrap { display:flex; flex-direction:column; align-items:center; justify-content:center; min-height:100vh; gap:24px; }
+.login-box { background:linear-gradient(145deg,#1a2332,#141d2b); border:1px solid #ffffff08; border-radius:12px; padding:28px 32px; width:100%; max-width:360px; }
+.login-input { width:100%; padding:8px 12px; border-radius:6px; border:1px solid #334155; background:#0f172a; color:#e2e8f0; font-size:13px; font-family:'DM Sans',sans-serif; outline:none; }
+.login-btn { width:100%; padding:10px; border-radius:6px; border:none; background:#38bdf8; color:#0b111e; font-size:13px; font-weight:600; cursor:pointer; font-family:'DM Sans',sans-serif; }
+</style>
+</head>
+<body>
+
+<div id="login" class="login-wrap">
+  <div style="text-align:center">
+    <div class="mono" style="font-size:10px;letter-spacing:3px;color:#475569;text-transform:uppercase">FX Command Centre</div>
+    <div style="font-size:28px;font-weight:700;background:linear-gradient(135deg,#38bdf8,#818cf8);-webkit-background-clip:text;-webkit-text-fill-color:transparent;margin-top:4px">Flooglebinder Ltd</div>
+  </div>
+  <div class="login-box">
+    <div style="font-size:14px;font-weight:600;margin-bottom:20px">Sign in</div>
+    <div style="margin-bottom:14px">
+      <label class="mono" style="font-size:10px;color:#64748b;text-transform:uppercase;letter-spacing:1px;display:block;margin-bottom:6px">Email</label>
+      <input id="em" type="email" placeholder="your@email.com" class="login-input">
+    </div>
+    <div style="margin-bottom:20px">
+      <label class="mono" style="font-size:10px;color:#64748b;text-transform:uppercase;letter-spacing:1px;display:block;margin-bottom:6px">Password</label>
+      <input id="pw" type="password" placeholder="password" class="login-input">
+    </div>
+    <button id="login-btn" class="login-btn" onclick="doLogin()">Sign in</button>
+    <div id="login-err" style="display:none;margin-top:12px;font-size:12px;color:#ef4444;text-align:center"></div>
+  </div>
+  <div style="font-size:11px;color:#334155">Pathfinder FX - Confidential</div>
+</div>
+
+<div id="loading" style="display:none;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;gap:12px">
+  <div class="mono" style="font-size:10px;letter-spacing:3px;color:#475569;text-transform:uppercase">FX Command Centre</div>
+  <div style="font-size:24px;font-weight:700;background:linear-gradient(135deg,#38bdf8,#818cf8);-webkit-background-clip:text;-webkit-text-fill-color:transparent">Flooglebinder Ltd</div>
+  <div style="color:#475569;font-size:12px">Loading live data...</div>
+</div>
+
+<div id="app" style="display:none"></div>
+
+<script>
+var SB_URL = "https://mkviozvkuvsdmusexbcv.supabase.co";
+var SB_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1rdmlvenZrdXZzZG11c2V4YmN2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzgwOTk2MzksImV4cCI6MjA5MzY3NTYzOX0.2DPSkw3LLrTsoUvzBPry36j-mfwwHihtiZps7CWSAu4";
+var SPOT = {EUR:1.1483, USD:1.356, ZAR:22.19, THB:43.3};
+var TODAY = new Date();
+var SUPPLIERS = [];
+var activeTab = "overview";
+var openSupp = null;
+var budgets = {EUR:1.16, USD:1.30, ZAR:23.0, THB:44.0};
+
+// ─── STATUSES ────────────────────────────────────────────────────────────────
+// All statuses the Gmail watcher can write, with display labels and colours.
+// Grouped for KPI calculations:
+//   HEDGED_STATUSES  = rate is locked, exposure is covered
+//   SETTLED_STATUSES = payment has gone out
+//   UNHEDGED_STATUSES = still fully exposed
+var HEDGED_STATUSES  = ["fwd_secured", "funded", "deposit_received", "payment_instructed"];
+var SETTLED_STATUSES = ["settled"];
+
+var ST = {
+  settled:            {label:"Settled",          color:"#22c55e", bg:"#16a34a18"},
+  fwd_secured:        {label:"FWD Secured",       color:"#f59e0b", bg:"#d9770618"},
+  funded:             {label:"Funded",            color:"#38bdf8", bg:"#0284c718"},
+  deposit_received:   {label:"Deposit Received",  color:"#818cf8", bg:"#6366f118"},
+  payment_instructed: {label:"Instructed",        color:"#a78bfa", bg:"#7c3aed18"},
+  unhedged:           {label:"Unhedged",          color:"#ef4444", bg:"#dc262618"}
+};
+
+function isHedged(status)  { return HEDGED_STATUSES.indexOf(status) >= 0; }
+function isSettled(status) { return SETTLED_STATUSES.indexOf(status) >= 0; }
+
+function sbFetch(path) {
+  return fetch(SB_URL + "/rest/v1/" + path, {
+    headers: {"apikey": SB_KEY, "Authorization": "Bearer " + SB_KEY}
+  }).then(function(r){ return r.json(); });
+}
+
+function fmt(n) { return n != null ? Math.round(n).toLocaleString("en-GB") : "--"; }
+function fmtD(n, d) { d = d||2; return n != null ? n.toLocaleString("en-GB", {minimumFractionDigits:d, maximumFractionDigits:d}) : "--"; }
+function fmtDate(d) {
+  if (!d || d === "TBC") return "TBC";
+  return new Date(d).toLocaleDateString("en-GB", {day:"2-digit", month:"short", year:"2-digit"});
+}
+function daysUntil(d) {
+  if (!d || d === "TBC") return Infinity;
+  return Math.ceil((new Date(d) - TODAY) / 86400000);
+}
+function gbpVal(fcy, rate, ccy) { return fcy / (rate || SPOT[ccy]); }
+
+function buildSuppliers(sRows, pRows) {
+  return sRows.map(function(s) {
+    return {
+      id: s.id, name: s.name, ccy: s.currency, pair: s.ccy_pair,
+      payments: pRows.filter(function(p){ return p.supplier_id === s.id; }).map(function(p) {
+        var type = p.payment_type || "--";
+        if (p.payment_pct) type = type.charAt(0).toUpperCase() + type.slice(1) + " " + p.payment_pct + "%";
+        return {
+          ref:    p.invoice_refs   || "--",
+          type:   type,
+          fcyAmt: parseFloat(p.fcy_amount)    || 0,
+          rate:   p.forward_rate   ? parseFloat(p.forward_rate) : null,
+          status: p.status         || "unhedged",
+          due:    p.due_date       || "TBC",
+          fwd:    p.trade_id       || null,
+          dep:    p.security_dep   ? parseFloat(p.security_dep) : null,
+          depDue: p.security_dep_due || null,
+          ccPayRef: p.cc_pay_ref   || null,
+          notes:  p.notes         || null
+        };
+      })
+    };
+  }).filter(function(s){ return s.payments.length > 0; });
+}
+
+function calcData() {
+  var tG=0, sG=0, fG=0, uG=0, tPay=0;
+  var cc={}, upcoming=[], deps=[], mats=[], cf={};
+
+  SUPPLIERS.forEach(function(s) {
+    s.payments.forEach(function(p) {
+      var g = gbpVal(p.fcyAmt, p.rate, s.ccy);
+      tG += g; tPay++;
+
+      if (!cc[s.ccy]) cc[s.ccy] = {total:0, settled:0, fwd:0, unhedged:0, rates:[]};
+      cc[s.ccy].total += g;
+      if (p.rate) cc[s.ccy].rates.push({rate:p.rate, gbp:g});
+
+      // ── FIX: correct status grouping ──────────────────────────────────────
+      if (isSettled(p.status)) {
+        sG += g;
+        cc[s.ccy].settled += g;
+      } else if (isHedged(p.status)) {
+        fG += g;
+        cc[s.ccy].fwd += g;
+      } else {
+        uG += g;
+        cc[s.ccy].unhedged += g;
+      }
+      // ─────────────────────────────────────────────────────────────────────
+
+      if (!isSettled(p.status)) upcoming.push(Object.assign({}, p, {supplier:s.name, ccy:s.ccy}));
+      if (p.dep) deps.push({supplier:s.name, ref:p.ref, amount:p.dep, due:p.depDue, paid:daysUntil(p.depDue)<0});
+
+      // Maturing within 30 days — include all hedged statuses, not just fwd_secured
+      if (isHedged(p.status)) {
+        var d = daysUntil(p.due);
+        if (d <= 30 && d >= 0) mats.push(Object.assign({}, p, {supplier:s.name, ccy:s.ccy, days:d}));
+      }
+
+      var m = p.due && p.due !== "TBC" ? p.due.substring(0,7) : null;
+      if (m && !isSettled(p.status)) cf[m] = (cf[m] || 0) + g;
+    });
+  });
+
+  upcoming.sort(function(a,b){ return daysUntil(a.due) - daysUntil(b.due); });
+  mats.sort(function(a,b){ return a.days - b.days; });
+
+  var wavg = {};
+  Object.keys(cc).forEach(function(c) {
+    var d = cc[c];
+    if (d.rates.length) {
+      var tw = d.rates.reduce(function(a,r){ return a+r.gbp; }, 0);
+      wavg[c] = d.rates.reduce(function(a,r){ return a + r.rate*(r.gbp/tw); }, 0);
+    }
+  });
+  return {tG:tG, sG:sG, fG:fG, uG:uG, tPay:tPay, cc:cc, upcoming:upcoming, deps:deps, mats:mats, cf:cf, wavg:wavg};
+}
+
+function setTab(t) { activeTab = t; render(); }
+function toggleSupp(name) { openSupp = openSupp === name ? null : name; render(); }
+function updateBudget(c, v) { budgets[c] = parseFloat(v) || 0; render(); }
+function signOut() { sessionStorage.removeItem("sb_token"); location.reload(); }
+
+function render() {
+  var d = calcData();
+  var pS = d.tG > 0 ? ((d.sG/d.tG)*100).toFixed(1) : "0.0";
+  var pF = d.tG > 0 ? ((d.fG/d.tG)*100).toFixed(1) : "0.0";
+  var pU = d.tG > 0 ? ((d.uG/d.tG)*100).toFixed(1) : "0.0";
+  var totDep = d.deps.reduce(function(a,m){ return a+m.amount; }, 0);
+  var todayStr = TODAY.toLocaleDateString("en-GB", {day:"numeric", month:"short", year:"numeric"});
+  var bPnl = 0;
+  SUPPLIERS.forEach(function(s) {
+    s.payments.forEach(function(p) {
+      if (p.rate && budgets[s.ccy]) bPnl += (p.fcyAmt/budgets[s.ccy]) - (p.fcyAmt/p.rate);
+    });
+  });
+
+  var html = '<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:20px;flex-wrap:wrap;gap:12px">';
+  html += '<div><div class="mono" style="font-size:10px;letter-spacing:3px;color:#475569;text-transform:uppercase">FX Command Centre</div>';
+  html += '<h1 style="font-size:28px;font-weight:700;margin:4px 0 0;background:linear-gradient(135deg,#38bdf8,#818cf8);-webkit-background-clip:text;-webkit-text-fill-color:transparent">Flooglebinder Ltd</h1>';
+  html += '<div style="font-size:12px;color:#475569;margin-top:2px">Travel Operator - Multi-Currency Payment Management</div></div>';
+  html += '<div style="text-align:right;display:flex;flex-direction:column;align-items:flex-end;gap:6px">';
+  html += '<div class="mono" style="background:#1e293b;border-radius:6px;padding:6px 12px;font-size:11px;color:#94a3b8">' + todayStr + '</div>';
+  html += '<div class="mono" style="font-size:10px;color:#475569">EUR ' + fmtD(SPOT.EUR,4) + ' - USD ' + fmtD(SPOT.USD,4) + ' - ZAR ' + fmtD(SPOT.ZAR,2) + ' - THB ' + fmtD(SPOT.THB,2) + '</div>';
+  html += '<button onclick="signOut()" style="padding:4px 10px;border-radius:4px;border:1px solid #334155;background:transparent;color:#64748b;font-size:11px;cursor:pointer">Sign out</button>';
+  html += '</div></div>';
+
+  var kpis = [
+    {l:"Total Exposure",   v:"GBP " + fmt(d.tG), s:SUPPLIERS.length + " suppliers - " + d.tPay + " payments", a:"#38bdf8"},
+    {l:"Hedged",           v:"GBP " + fmt(d.fG), s:pF + "% rate-locked",  a:"#f59e0b"},
+    {l:"Unhedged",         v:"GBP " + fmt(d.uG), s:pU + "% exposed",      a:"#ef4444"},
+    {l:"Margin Held",      v:"GBP " + fmt(totDep), s:d.deps.length + " deposits", a:"#818cf8"}
+  ];
+  html += '<div class="kpi-grid">';
+  kpis.forEach(function(k) {
+    html += '<div class="card kpi-card" style="border-left:3px solid ' + k.a + '">';
+    html += '<div class="kpi-label">' + k.l + '</div>';
+    html += '<div class="kpi-value">' + k.v + '</div>';
+    html += '<div class="kpi-sub" style="color:' + k.a + '">' + k.s + '</div></div>';
+  });
+  html += '</div>';
+
+  var covered = (parseFloat(pS) + parseFloat(pF)).toFixed(1);
+  html += '<div class="card" style="padding:12px 16px;margin-bottom:14px">';
+  html += '<div style="display:flex;justify-content:space-between;margin-bottom:6px"><span style="font-size:12px;font-weight:600">Hedging Coverage</span>';
+  html += '<span class="mono" style="font-size:11px;color:#94a3b8">' + covered + '% protected</span></div>';
+  html += '<div class="coverage-bar">';
+  html += '<div style="width:' + pS + '%;background:linear-gradient(90deg,#16a34a,#22c55e);display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;color:#fff">' + (parseFloat(pS)>5?pS+"%":"") + '</div>';
+  html += '<div style="width:' + pF + '%;background:linear-gradient(90deg,#d97706,#f59e0b);display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;color:#fff">' + (parseFloat(pF)>5?pF+"%":"") + '</div>';
+  html += '<div style="width:' + pU + '%;background:linear-gradient(90deg,#dc2626,#ef4444);display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;color:#fff">' + (parseFloat(pU)>5?pU+"%":"") + '</div>';
+  html += '</div>';
+  html += '<div style="display:flex;gap:14px">';
+  [{c:"#22c55e",l:"Settled"},{c:"#f59e0b",l:"Hedged (all types)"},{c:"#ef4444",l:"Unhedged"}].forEach(function(x) {
+    html += '<div style="display:flex;align-items:center;gap:5px;font-size:10px;color:#94a3b8"><div style="width:8px;height:8px;border-radius:2px;background:' + x.c + '"></div>' + x.l + '</div>';
+  });
+  html += '</div></div>';
+
+  if (d.mats.length > 0) {
+    html += '<div class="alert-box" style="display:flex;gap:10px;margin-bottom:14px"><span style="font-size:16px">!</span><div>';
+    html += '<div style="font-size:12px;font-weight:600;color:#f59e0b">Hedged Payments Maturing Within 30 Days</div>';
+    html += '<div style="font-size:11px;color:#94a3b8;margin-top:2px">' + d.mats.map(function(m){ return m.supplier + " " + m.ref + ": " + fmt(m.fcyAmt) + " " + m.ccy + " in " + m.days + "d"; }).join(" · ") + '</div>';
+    html += '</div></div>';
+  }
+
+  html += '<div class="tabs">';
+  [["overview","Suppliers"],["rates","Rates & Budget"],["upcoming","Upcoming"],["cashflow","Cash Flow"],["currency","By Currency"]].forEach(function(t) {
+    html += '<button class="tab' + (activeTab===t[0]?" active":"") + '" onclick="setTab(\'' + t[0] + '\')">' + t[1] + '</button>';
+  });
+  html += '</div>';
+  html += '<div id="tab-content">' + renderTab(d, pS, pF, pU, totDep, bPnl) + '</div>';
+  html += '<div style="margin-top:24px;padding:12px 0;border-top:1px solid #ffffff08;display:flex;justify-content:space-between;font-size:10px;color:#334155">';
+  html += '<div>Live data - Pathfinder FX</div><div>Confidential - Flooglebinder Ltd</div></div>';
+
+  document.getElementById("app").innerHTML = html;
+}
+
+function renderTab(d, pS, pF, pU, totDep, bPnl) {
+  if (activeTab === "overview") return renderOverview();
+  if (activeTab === "rates")    return renderRates(d, bPnl);
+  if (activeTab === "upcoming") return renderUpcoming(d, totDep);
+  if (activeTab === "cashflow") return renderCashflow(d);
+  if (activeTab === "currency") return renderCurrency(d);
+  return "";
+}
+
+function renderOverview() {
+  var html = "";
+  SUPPLIERS.forEach(function(s) {
+    var isOpen = openSupp === s.name;
+    var settled=0, fwd=0, unhedged=0;
+    s.payments.forEach(function(p) {
+      var g = gbpVal(p.fcyAmt, p.rate, s.ccy);
+      if (isSettled(p.status))     settled  += g;
+      else if (isHedged(p.status)) fwd      += g;
+      else                         unhedged += g;
+    });
+    var sT = settled + fwd + unhedged;
+    var allDone  = s.payments.every(function(p){ return isSettled(p.status); });
+    var hasOpen  = s.payments.some(function(p){ return !isSettled(p.status) && !isHedged(p.status); });
+    var sc = allDone ? "#22c55e" : hasOpen ? "#ef4444" : "#f59e0b";
+    var si = allDone ? "OK" : hasOpen ? "!" : "~";
+    html += '<div class="card supplier-row" style="border:1px solid ' + sc + '18">';
+    html += '<div class="supplier-header" onclick="toggleSupp(\'' + s.name.replace(/'/g, "\\'") + '\')">';
+    html += '<div style="display:flex;align-items:center;gap:12px">';
+    html += '<div style="width:34px;height:34px;border-radius:7px;background:' + sc + '12;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:' + sc + '">' + si + '</div>';
+    html += '<div><div style="font-weight:600;font-size:14px">' + s.name + '</div>';
+    html += '<div style="font-size:11px;color:#475569">' + s.ccy + ' · ' + s.pair + ' · ' + s.payments.length + ' payment' + (s.payments.length>1?"s":"") + '</div></div></div>';
+    html += '<div style="display:flex;align-items:center;gap:12px">';
+    html += '<div style="font-size:15px;font-weight:700">GBP ' + fmt(sT) + '</div>';
+    html += '<div style="display:flex;gap:4px;flex-wrap:wrap">';
+    if (settled  > 0) html += '<span class="badge" style="background:#22c55e20;color:#22c55e">GBP ' + fmt(settled)  + ' settled</span>';
+    if (fwd      > 0) html += '<span class="badge" style="background:#f59e0b20;color:#f59e0b">GBP ' + fmt(fwd)     + ' hedged</span>';
+    if (unhedged > 0) html += '<span class="badge" style="background:#ef444420;color:#ef4444">GBP ' + fmt(unhedged) + ' open</span>';
+    html += '</div><div style="color:#475569;font-size:16px">v</div></div></div>';
+    if (isOpen) {
+      html += '<div class="supplier-detail"><table style="min-width:700px"><thead><tr>';
+      html += '<th>Ref</th><th>Type</th><th style="text-align:right">' + s.ccy + '</th><th style="text-align:right">Rate</th><th style="text-align:right">GBP Equiv</th><th>Due</th><th>Status</th><th>Trade Ref</th><th>CC Pay Ref</th>';
+      html += '</tr></thead><tbody>';
+      s.payments.forEach(function(p) {
+        var st = ST[p.status] || ST.unhedged;
+        var g  = gbpVal(p.fcyAmt, p.rate, s.ccy);
+        var dd = daysUntil(p.due);
+        var urg = dd >= 0 && dd <= 14 && !isSettled(p.status);
+        html += '<tr>';
+        html += '<td>' + p.ref + '</td>';
+        html += '<td style="color:#94a3b8">' + p.type + '</td>';
+        html += '<td class="mono" style="text-align:right">' + fmt(p.fcyAmt) + ' ' + s.ccy + '</td>';
+        html += '<td class="mono" style="text-align:right;color:#94a3b8">' + (p.rate ? fmtD(p.rate,4) : "--") + '</td>';
+        html += '<td class="mono" style="text-align:right;font-weight:600">GBP ' + fmt(g) + '</td>';
+        html += '<td class="mono" style="color:' + (urg?"#ef4444":"#94a3b8") + '">' + fmtDate(p.due) + (urg?" !":"") + '</td>';
+        html += '<td><span class="badge" style="background:' + st.bg + ';color:' + st.color + '">' + st.label + '</span></td>';
+        html += '<td class="mono" style="font-size:9px;color:#475569">' + (p.fwd      || "--") + '</td>';
+        html += '<td class="mono" style="font-size:9px;color:#475569">' + (p.ccPayRef || "--") + '</td>';
+        html += '</tr>';
+      });
+      html += '</tbody></table></div>';
+    }
+    html += '</div>';
+  });
+  return html;
+}
+
+function renderRates(d, bPnl) {
+  var fwdRows = "";
+  // ── FIX: include all hedged statuses in MTM table, not just fwd_secured ──
+  SUPPLIERS.forEach(function(s) {
+    s.payments.filter(function(p){ return isHedged(p.status) && p.rate; }).forEach(function(p) {
+      var aB = p.fcyAmt/p.rate, aS = p.fcyAmt/SPOT[s.ccy], mtm = aS - aB;
+      var st = ST[p.status] || ST.fwd_secured;
+      fwdRows += '<tr><td>' + s.name + '</td><td style="color:#94a3b8">' + p.ref + '</td>';
+      fwdRows += '<td><span class="badge" style="background:' + st.bg + ';color:' + st.color + ';font-size:9px">' + st.label + '</span></td>';
+      fwdRows += '<td class="mono" style="text-align:right">' + fmt(p.fcyAmt) + ' ' + s.ccy + '</td>';
+      fwdRows += '<td class="mono" style="text-align:right">' + fmtD(p.rate,4) + '</td>';
+      fwdRows += '<td class="mono" style="text-align:right;color:#64748b">' + fmtD(SPOT[s.ccy],4) + '</td>';
+      fwdRows += '<td class="mono" style="text-align:right">GBP ' + fmt(aB) + '</td>';
+      fwdRows += '<td class="mono" style="text-align:right;color:#64748b">GBP ' + fmt(aS) + '</td>';
+      fwdRows += '<td class="mono" style="text-align:right;font-weight:600;color:' + (mtm>=0?"#22c55e":"#ef4444") + '">' + (mtm>=0?"+":"") + 'GBP ' + fmt(Math.abs(mtm)) + '</td></tr>';
+    });
+  });
+  var tMtm = 0;
+  SUPPLIERS.forEach(function(s) {
+    s.payments.filter(function(p){ return isHedged(p.status) && p.rate; }).forEach(function(p) {
+      tMtm += (p.fcyAmt/SPOT[s.ccy]) - (p.fcyAmt/p.rate);
+    });
+  });
+  var html = '<div style="display:grid;gap:14px">';
+  html += '<div class="card" style="padding:16px"><div style="font-size:14px;font-weight:600;margin-bottom:12px">Weighted Average Rates Achieved</div>';
+  html += '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px">';
+  Object.keys(d.wavg).forEach(function(c) {
+    var r = d.wavg[c], sp = SPOT[c], better = r >= sp;
+    html += '<div style="background:#0f172a;border-radius:8px;padding:14px">';
+    html += '<div style="font-size:11px;color:#64748b;margin-bottom:4px">GBP/' + c + '</div>';
+    html += '<div style="display:flex;justify-content:space-between;align-items:baseline">';
+    html += '<div><span style="font-size:22px;font-weight:700">' + fmtD(r,4) + '</span><span style="font-size:10px;color:#475569;margin-left:4px">wt avg</span></div>';
+    html += '<div style="text-align:right"><div class="mono" style="font-size:13px;color:#94a3b8">' + fmtD(sp,4) + '</div><div style="font-size:10px;color:#475569">spot</div></div></div>';
+    html += '<div style="margin-top:6px;font-size:11px;font-weight:600;color:' + (better?"#22c55e":"#ef4444") + '">' + (better?"↑":"↓") + ' ' + Math.abs(((r-sp)/sp)*100).toFixed(2) + '% ' + (better?"better":"worse") + ' than spot</div></div>';
+  });
+  html += '</div></div>';
+  html += '<div class="card" style="padding:16px"><div style="font-size:14px;font-weight:600;margin-bottom:4px">Budget Rate Comparison</div>';
+  html += '<div style="font-size:11px;color:#64748b;margin-bottom:12px">Enter budget rates to show performance vs plan</div>';
+  html += '<div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:14px">';
+  Object.keys(budgets).forEach(function(c) {
+    html += '<div style="display:flex;align-items:center;gap:6px"><label class="mono" style="font-size:11px;color:#94a3b8;min-width:55px">GBP/' + c + '</label>';
+    html += '<input type="number" step="0.001" value="' + budgets[c] + '" onchange="updateBudget(\'' + c + '\',this.value)" style="width:80px;padding:4px 8px;border-radius:4px;border:1px solid #334155;background:#0f172a;color:#e2e8f0;font-size:12px;font-family:monospace"></div>';
+  });
+  html += '</div>';
+  html += '<div style="background:' + (bPnl>=0?"#16a34a12":"#dc262612") + ';border-radius:8px;padding:14px;display:flex;align-items:center;justify-content:space-between">';
+  html += '<div><div style="font-size:11px;color:#94a3b8">Performance vs Budget</div>';
+  html += '<div style="font-size:24px;font-weight:700;color:' + (bPnl>=0?"#22c55e":"#ef4444") + '">' + (bPnl>=0?"+":"") + 'GBP ' + fmt(Math.abs(bPnl)) + '</div></div>';
+  html += '<div style="font-size:12px;color:#94a3b8;max-width:260px">' + (bPnl>=0?"Rates achieved beat budget.":"Rates behind budget.") + '</div></div></div>';
+  html += '<div class="card" style="padding:16px"><div style="font-size:14px;font-weight:600;margin-bottom:4px">Mark-to-Market — All Hedged Positions</div>';
+  html += '<div style="font-size:11px;color:#64748b;margin-bottom:10px">Includes FWD Secured, Funded, Deposit Received and Instructed payments</div>';
+  html += '<div style="overflow-x:auto"><table style="min-width:750px"><thead><tr>';
+  html += '<th>Supplier</th><th>Ref</th><th>Status</th><th style="text-align:right">FCY</th><th style="text-align:right">Booked</th><th style="text-align:right">Spot</th><th style="text-align:right">GBP Booked</th><th style="text-align:right">GBP Spot</th><th style="text-align:right">MTM</th>';
+  html += '</tr></thead><tbody>' + (fwdRows || '<tr><td colspan="9" style="color:#475569;text-align:center;padding:20px">No hedged positions</td></tr>') + '</tbody></table>';
+  html += '<div style="display:flex;justify-content:flex-end;padding:10px 0 0;border-top:2px solid #ffffff12;margin-top:4px">';
+  html += '<span class="mono" style="font-weight:700;font-size:14px;color:' + (tMtm>=0?"#22c55e":"#ef4444") + '">Net MTM: ' + (tMtm>=0?"+":"") + 'GBP ' + fmt(Math.abs(tMtm)) + '</span></div></div></div>';
+  html += '</div>';
+  return html;
+}
+
+function renderUpcoming(d, totDep) {
+  var rows = "";
+  d.upcoming.forEach(function(p) {
+    var dd = daysUntil(p.due), st = ST[p.status]||ST.unhedged, g = gbpVal(p.fcyAmt, p.rate, p.ccy);
+    var dayStr = dd===Infinity?"TBC":dd<0?Math.abs(dd)+"d ago":dd+"d";
+    var dayCol = dd===Infinity?"#475569":dd<0?"#ef4444":dd<=14?"#f59e0b":"#94a3b8";
+    rows += '<tr style="background:' + (dd<0?"#dc262608":dd<=14?"#d9770608":"transparent") + '">';
+    rows += '<td class="mono" style="font-weight:700;color:' + dayCol + '">' + dayStr + '</td>';
+    rows += '<td style="font-weight:500">' + p.supplier + '</td>';
+    rows += '<td style="color:#94a3b8">' + p.ref + '</td>';
+    rows += '<td style="color:#64748b">' + p.type + '</td>';
+    rows += '<td class="mono" style="text-align:right">' + fmt(p.fcyAmt) + ' ' + p.ccy + '</td>';
+    rows += '<td class="mono" style="text-align:right;font-weight:600">GBP ' + fmt(g) + '</td>';
+    rows += '<td class="mono">' + fmtDate(p.due) + '</td>';
+    rows += '<td><span class="badge" style="background:' + st.bg + ';color:' + st.color + '">' + st.label + '</span></td></tr>';
+  });
+  var depRows = "";
+  d.deps.forEach(function(m) {
+    depRows += '<div style="display:flex;align-items:center;justify-content:space-between;padding:6px 10px;background:#0f172a;border-radius:6px;margin-bottom:6px">';
+    depRows += '<div style="display:flex;align-items:center;gap:8px"><span style="width:6px;height:6px;border-radius:50%;background:' + (m.paid?"#22c55e":"#f59e0b") + ';display:inline-block"></span>';
+    depRows += '<span style="font-size:12px;font-weight:500">' + m.supplier + '</span><span style="font-size:11px;color:#64748b">' + m.ref + '</span></div>';
+    depRows += '<div style="display:flex;align-items:center;gap:10px"><span class="mono" style="font-size:12px;font-weight:600">GBP ' + fmt(m.amount) + '</span>';
+    depRows += '<span style="font-size:10px;color:' + (m.paid?"#22c55e":"#f59e0b") + '">' + (m.paid?"Paid":"Due "+fmtDate(m.due)) + '</span></div></div>';
+  });
+  var html = '<div style="display:grid;gap:14px">';
+  html += '<div class="card" style="overflow:hidden"><div style="padding:14px 16px;border-bottom:1px solid #ffffff08"><div style="font-size:14px;font-weight:600">Upcoming Payments and Maturities</div></div>';
+  html += '<div style="overflow-x:auto"><table style="min-width:600px"><thead><tr>';
+  html += '<th>Days</th><th>Supplier</th><th>Ref</th><th>Type</th><th style="text-align:right">FCY</th><th style="text-align:right">GBP</th><th>Due</th><th>Status</th>';
+  html += '</tr></thead><tbody>' + (rows || '<tr><td colspan="8" style="color:#475569;text-align:center;padding:20px">No upcoming payments</td></tr>') + '</tbody></table></div></div>';
+  html += '<div class="card" style="padding:16px"><div style="font-size:14px;font-weight:600;margin-bottom:4px">5% Margin Deposit Tracker</div>';
+  html += '<div style="font-size:11px;color:#64748b;margin-bottom:10px">Total margin held: <strong style="color:#818cf8">GBP ' + fmt(totDep) + '</strong></div>';
+  html += (depRows || '<div style="font-size:12px;color:#475569">No deposits recorded</div>') + '</div></div>';
+  return html;
+}
+
+function renderCashflow(d) {
+  var months = Object.keys(d.cf).sort();
+  var vals   = months.map(function(m){ return d.cf[m]; });
+  var maxV   = Math.max.apply(null, vals) || 1;
+  var bars   = "";
+  months.forEach(function(m) {
+    var v = d.cf[m];
+    bars += '<div style="margin-bottom:10px">';
+    bars += '<div style="display:flex;justify-content:space-between;margin-bottom:4px">';
+    bars += '<span style="font-size:12px;font-weight:500">' + new Date(m+"-01").toLocaleDateString("en-GB",{month:"long",year:"numeric"}) + '</span>';
+    bars += '<span class="mono" style="font-size:13px;font-weight:700">GBP ' + fmt(v) + '</span></div>';
+    bars += '<div style="height:16px;border-radius:4px;background:#0f172a;overflow:hidden"><div style="height:100%;width:' + (v/maxV*100) + '%;background:linear-gradient(90deg,#38bdf8,#818cf8);border-radius:4px"></div></div></div>';
+  });
+  var total   = vals.reduce(function(a,b){ return a+b; }, 0);
+  var settled = SUPPLIERS.reduce(function(a,s){ return a + s.payments.filter(function(p){ return isSettled(p.status); }).length; }, 0);
+  var ccySet  = [];
+  SUPPLIERS.forEach(function(s){ if (ccySet.indexOf(s.ccy) < 0) ccySet.push(s.ccy); });
+  var fwds = SUPPLIERS.reduce(function(a,s){ return a + s.payments.filter(function(p){ return isHedged(p.status); }).length; }, 0);
+  var html = '<div style="display:grid;gap:14px">';
+  html += '<div class="card" style="padding:16px"><div style="font-size:14px;font-weight:600;margin-bottom:4px">Projected GBP Outflows</div>';
+  html += '<div style="font-size:11px;color:#64748b;margin-bottom:16px">Outstanding payments by month</div>';
+  html += (bars || '<div style="color:#475569;font-size:12px">No outstanding payments</div>');
+  html += '<div style="display:flex;justify-content:space-between;padding:10px 0 0;border-top:2px solid #ffffff12">';
+  html += '<span style="font-weight:700">Total Outstanding</span><span class="mono" style="font-weight:700;font-size:15px;color:#38bdf8">GBP ' + fmt(total) + '</span></div></div>';
+  html += '<div class="card" style="padding:16px"><div style="font-size:13px;font-weight:600;margin-bottom:10px;color:#38bdf8">Relationship Summary</div>';
+  html += '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:12px">';
+  [{l:"Payments Made",v:settled},{l:"Currencies Traded",v:ccySet.join(", ")},{l:"Suppliers Managed",v:SUPPLIERS.length},{l:"Hedged Positions",v:fwds}].forEach(function(x) {
+    html += '<div><div style="font-size:10px;color:#475569;margin-bottom:2px">' + x.l + '</div><div style="font-size:16px;font-weight:700">' + x.v + '</div></div>';
+  });
+  html += '</div></div></div>';
+  return html;
+}
+
+function renderCurrency(d) {
+  var html = '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(270px,1fr));gap:12px">';
+  Object.keys(d.cc).forEach(function(c) {
+    var v  = d.cc[c];
+    var pD = v.total > 0 ? ((v.settled /v.total)*100).toFixed(0) : "0";
+    var pF = v.total > 0 ? ((v.fwd     /v.total)*100).toFixed(0) : "0";
+    var pU = v.total > 0 ? ((v.unhedged/v.total)*100).toFixed(0) : "0";
+    html += '<div class="card" style="padding:16px">';
+    html += '<div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">';
+    html += '<div style="width:32px;height:32px;border-radius:6px;background:#1e293b;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:#94a3b8">' + c + '</div>';
+    html += '<div><div style="font-size:17px;font-weight:700">' + c + '</div><div style="font-size:11px;color:#475569">GBP/' + c + '</div></div>';
+    html += '<div style="margin-left:auto"><div style="font-size:18px;font-weight:700">GBP ' + fmt(v.total) + '</div></div></div>';
+    html += '<div style="height:8px;border-radius:4px;background:#0f172a;display:flex;overflow:hidden;margin-bottom:10px">';
+    html += '<div style="width:' + pD + '%;background:#22c55e"></div><div style="width:' + pF + '%;background:#f59e0b"></div><div style="width:' + pU + '%;background:#ef4444"></div></div>';
+    html += '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-bottom:10px">';
+    [{l:"Settled",v:v.settled,c:"#22c55e",p:pD},{l:"Hedged",v:v.fwd,c:"#f59e0b",p:pF},{l:"Open",v:v.unhedged,c:"#ef4444",p:pU}].forEach(function(x) {
+      html += '<div style="text-align:center"><div style="font-size:10px;color:#475569">' + x.l + '</div><div style="font-size:13px;font-weight:600;color:' + x.c + '">GBP ' + fmt(x.v) + '</div><div style="font-size:9px;color:#475569">' + x.p + '%</div></div>';
+    });
+    html += '</div>';
+    if (d.wavg[c]) {
+      html += '<div style="background:#0f172a;border-radius:6px;padding:8px 10px;font-size:11px">';
+      html += '<div style="display:flex;justify-content:space-between"><span style="color:#94a3b8">Wt Avg</span><span class="mono" style="font-weight:600">' + fmtD(d.wavg[c],4) + '</span></div>';
+      html += '<div style="display:flex;justify-content:space-between;margin-top:2px"><span style="color:#94a3b8">Spot</span><span class="mono" style="color:#64748b">' + fmtD(SPOT[c],4) + '</span></div></div>';
+    }
+    html += '<div style="margin-top:8px;font-size:10px;color:#475569">' + SUPPLIERS.filter(function(s){ return s.ccy===c; }).map(function(s){ return s.name; }).join(", ") + '</div>';
+    html += '</div>';
+  });
+  html += '</div>';
+  return html;
+}
+
+function doLogin() {
+  var email = document.getElementById("em").value;
+  var pw    = document.getElementById("pw").value;
+  var btn   = document.getElementById("login-btn");
+  var err   = document.getElementById("login-err");
+  btn.textContent = "Signing in...";
+  btn.disabled = true;
+  err.style.display = "none";
+  fetch(SB_URL + "/auth/v1/token?grant_type=password", {
+    method: "POST",
+    headers: {"apikey": SB_KEY, "Content-Type": "application/json"},
+    body: JSON.stringify({email: email, password: pw})
+  }).then(function(r){ return r.json(); }).then(function(data) {
+    if (data.access_token) {
+      sessionStorage.setItem("sb_token", data.access_token);
+      loadDashboard();
+    } else {
+      err.textContent = data.error_description || "Invalid email or password";
+      err.style.display = "block";
+      btn.textContent = "Sign in";
+      btn.disabled = false;
+    }
+  }).catch(function() {
+    err.textContent = "Connection error. Please try again.";
+    err.style.display = "block";
+    btn.textContent = "Sign in";
+    btn.disabled = false;
+  });
+}
+
+document.addEventListener("keydown", function(e) { if (e.key === "Enter") doLogin(); });
+
+function loadDashboard() {
+  document.getElementById("login").style.display   = "none";
+  document.getElementById("loading").style.display = "flex";
+  Promise.all([
+    sbFetch("suppliers?client_id=eq.flooglebinder&order=name"),
+    sbFetch("payments?client_id=eq.flooglebinder&order=due_date")
+  ]).then(function(results) {
+    SUPPLIERS = buildSuppliers(results[0], results[1]);
+    document.getElementById("loading").style.display = "none";
+    document.getElementById("app").style.display     = "block";
+    render();
+  }).catch(function(e) {
+    document.getElementById("loading").innerHTML =
+      '<div style="color:#ef4444;font-size:14px;font-weight:600">Could not load data</div>' +
+      '<div style="color:#64748b;font-size:12px">' + e.message + '</div>';
+  });
+}
+
+if (sessionStorage.getItem("sb_token")) {
+  loadDashboard();
+} else {
+  document.getElementById("login").style.display = "flex";
+}
+</script>
+</body>
+</html>

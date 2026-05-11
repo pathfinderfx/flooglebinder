@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
-<head> 
+<head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Flooglebinder Ltd - FX Command Centre</title>
@@ -105,7 +105,7 @@ function sbFetch(path) {
   }).then(function(r){ return r.json(); });
 }
 
-function fmt(n) { return n != null ? Math.round(n).toLocaleString("en-GB") : "--"; }
+function fmt(n) { return n != null ? n.toLocaleString("en-GB", {minimumFractionDigits:2, maximumFractionDigits:2}) : "--"; }
 function fmtD(n, d) { d = d||2; return n != null ? n.toLocaleString("en-GB", {minimumFractionDigits:d, maximumFractionDigits:d}) : "--"; }
 function fmtDate(d) {
   if (!d || d === "TBC") return "TBC";

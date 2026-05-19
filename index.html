@@ -78,12 +78,6 @@ var activeTab = "overview";
 var openSupp = null;
 var budgets = {EUR:1.16, USD:1.30, ZAR:23.0, THB:44.0};
 
-// ─── STATUSES ────────────────────────────────────────────────────────────────
-// All statuses the Gmail watcher can write, with display labels and colours.
-// Grouped for KPI calculations:
-//   HEDGED_STATUSES  = rate is locked, exposure is covered
-//   SETTLED_STATUSES = payment has gone out
-//   UNHEDGED_STATUSES = still fully exposed
 var HEDGED_STATUSES  = ["fwd_secured", "funded", "deposit_received", "payment_instructed"];
 var SETTLED_STATUSES = ["settled"];
 
@@ -155,7 +149,6 @@ function calcData() {
       cc[s.ccy].total += g;
       if (p.rate) cc[s.ccy].rates.push({rate:p.rate, gbp:g});
 
-      // ── FIX: correct status grouping ──────────────────────────────────────
       if (isSettled(p.status)) {
         sG += g;
         cc[s.ccy].settled += g;
@@ -166,12 +159,10 @@ function calcData() {
         uG += g;
         cc[s.ccy].unhedged += g;
       }
-      // ─────────────────────────────────────────────────────────────────────
 
       if (!isSettled(p.status)) upcoming.push(Object.assign({}, p, {supplier:s.name, ccy:s.ccy}));
       if (p.dep) deps.push({supplier:s.name, ref:p.ref, amount:p.dep, due:p.depDue, paid:daysUntil(p.depDue)<0});
 
-      // Maturing within 30 days — include all hedged statuses, not just fwd_secured
       if (isHedged(p.status)) {
         var d = daysUntil(p.due);
         if (d <= 30 && d >= 0) mats.push(Object.assign({}, p, {supplier:s.name, ccy:s.ccy, days:d}));
@@ -304,7 +295,7 @@ function renderOverview() {
     html += '<div style="display:flex;align-items:center;gap:12px">';
     html += '<div style="width:34px;height:34px;border-radius:7px;background:' + sc + '12;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:' + sc + '">' + si + '</div>';
     html += '<div><div style="font-weight:600;font-size:14px">' + s.name + '</div>';
-    html += '<div style="font-size:11px;color:#475569">' + s.ccy + ' · ' + s.pair + ' · ' + s.payments.length + ' payment' + (s.payments.length>1?"s":"") + '</div></div></div>';
+    html += '<div style="font-size:11px;color:#475569">' + s.ccy + ' - ' + s.pair + ' - ' + s.payments.length + ' payment' + (s.payments.length>1?"s":"") + '</div></div></div>';
     html += '<div style="display:flex;align-items:center;gap:12px">';
     html += '<div style="font-size:15px;font-weight:700">GBP ' + fmt(sT) + '</div>';
     html += '<div style="display:flex;gap:4px;flex-wrap:wrap">';
@@ -342,7 +333,6 @@ function renderOverview() {
 
 function renderRates(d, bPnl) {
   var fwdRows = "";
-  // ── FIX: include all hedged statuses in MTM table, not just fwd_secured ──
   SUPPLIERS.forEach(function(s) {
     s.payments.filter(function(p){ return isHedged(p.status) && p.rate; }).forEach(function(p) {
       var aB = p.fcyAmt/p.rate, aS = p.fcyAmt/SPOT[s.ccy], mtm = aS - aB;
@@ -373,7 +363,7 @@ function renderRates(d, bPnl) {
     html += '<div style="display:flex;justify-content:space-between;align-items:baseline">';
     html += '<div><span style="font-size:22px;font-weight:700">' + fmtD(r,4) + '</span><span style="font-size:10px;color:#475569;margin-left:4px">wt avg</span></div>';
     html += '<div style="text-align:right"><div class="mono" style="font-size:13px;color:#94a3b8">' + fmtD(sp,4) + '</div><div style="font-size:10px;color:#475569">spot</div></div></div>';
-    html += '<div style="margin-top:6px;font-size:11px;font-weight:600;color:' + (better?"#22c55e":"#ef4444") + '">' + (better?"↑":"↓") + ' ' + Math.abs(((r-sp)/sp)*100).toFixed(2) + '% ' + (better?"better":"worse") + ' than spot</div></div>';
+    html += '<div style="margin-top:6px;font-size:11px;font-weight:600;color:' + (better?"#22c55e":"#ef4444") + '">' + (better?"up":"down") + ' ' + Math.abs(((r-sp)/sp)*100).toFixed(2) + '% ' + (better?"better":"worse") + ' than spot</div></div>';
   });
   html += '</div></div>';
   html += '<div class="card" style="padding:16px"><div style="font-size:14px;font-weight:600;margin-bottom:4px">Budget Rate Comparison</div>';
@@ -388,7 +378,7 @@ function renderRates(d, bPnl) {
   html += '<div><div style="font-size:11px;color:#94a3b8">Performance vs Budget</div>';
   html += '<div style="font-size:24px;font-weight:700;color:' + (bPnl>=0?"#22c55e":"#ef4444") + '">' + (bPnl>=0?"+":"") + 'GBP ' + fmt(Math.abs(bPnl)) + '</div></div>';
   html += '<div style="font-size:12px;color:#94a3b8;max-width:260px">' + (bPnl>=0?"Rates achieved beat budget.":"Rates behind budget.") + '</div></div></div>';
-  html += '<div class="card" style="padding:16px"><div style="font-size:14px;font-weight:600;margin-bottom:4px">Mark-to-Market — All Hedged Positions</div>';
+  html += '<div class="card" style="padding:16px"><div style="font-size:14px;font-weight:600;margin-bottom:4px">Mark-to-Market - All Hedged Positions</div>';
   html += '<div style="font-size:11px;color:#64748b;margin-bottom:10px">Includes FWD Secured, Funded, Deposit Received and Instructed payments</div>';
   html += '<div style="overflow-x:auto"><table style="min-width:750px"><thead><tr>';
   html += '<th>Supplier</th><th>Ref</th><th>Status</th><th style="text-align:right">FCY</th><th style="text-align:right">Booked</th><th style="text-align:right">Spot</th><th style="text-align:right">GBP Booked</th><th style="text-align:right">GBP Spot</th><th style="text-align:right">MTM</th>';
@@ -403,6 +393,8 @@ function renderUpcoming(d, totDep) {
   var rows = "";
   d.upcoming.forEach(function(p) {
     var dd = daysUntil(p.due), st = ST[p.status]||ST.unhedged, g = gbpVal(p.fcyAmt, p.rate, p.ccy);
+    // For Deposit Received rows: 5% margin already held, so show 95% as the net amount still due
+    var gDue = p.status === 'deposit_received' ? g * 0.95 : g;
     var dayStr = dd===Infinity?"TBC":dd<0?Math.abs(dd)+"d ago":dd+"d";
     var dayCol = dd===Infinity?"#475569":dd<0?"#ef4444":dd<=14?"#f59e0b":"#94a3b8";
     rows += '<tr style="background:' + (dd<0?"#dc262608":dd<=14?"#d9770608":"transparent") + '">';
@@ -411,7 +403,7 @@ function renderUpcoming(d, totDep) {
     rows += '<td style="color:#94a3b8">' + p.ref + '</td>';
     rows += '<td style="color:#64748b">' + p.type + '</td>';
     rows += '<td class="mono" style="text-align:right">' + fmt(p.fcyAmt) + ' ' + p.ccy + '</td>';
-    rows += '<td class="mono" style="text-align:right;font-weight:600">GBP ' + fmt(g) + '</td>';
+    rows += '<td class="mono" style="text-align:right;font-weight:600">GBP ' + fmt(gDue) + (p.status==='deposit_received'?'<div style="font-size:9px;color:#818cf8;font-weight:400">net of 5% dep</div>':'') + '</td>';
     rows += '<td class="mono">' + fmtDate(p.due) + '</td>';
     rows += '<td><span class="badge" style="background:' + st.bg + ';color:' + st.color + '">' + st.label + '</span></td></tr>';
   });
@@ -424,9 +416,11 @@ function renderUpcoming(d, totDep) {
     depRows += '<span style="font-size:10px;color:' + (m.paid?"#22c55e":"#f59e0b") + '">' + (m.paid?"Paid":"Due "+fmtDate(m.due)) + '</span></div></div>';
   });
   var html = '<div style="display:grid;gap:14px">';
-  html += '<div class="card" style="overflow:hidden"><div style="padding:14px 16px;border-bottom:1px solid #ffffff08"><div style="font-size:14px;font-weight:600">Upcoming Payments and Maturities</div></div>';
+  html += '<div class="card" style="overflow:hidden"><div style="padding:14px 16px;border-bottom:1px solid #ffffff08;display:flex;justify-content:space-between;align-items:center">';
+  html += '<div style="font-size:14px;font-weight:600">Upcoming Payments and Maturities</div>';
+  html += '<div style="font-size:10px;color:#818cf8;font-style:italic">GBP Due is net of 5% margin for Deposit Received rows</div></div>';
   html += '<div style="overflow-x:auto"><table style="min-width:600px"><thead><tr>';
-  html += '<th>Days</th><th>Supplier</th><th>Ref</th><th>Type</th><th style="text-align:right">FCY</th><th style="text-align:right">GBP</th><th>Due</th><th>Status</th>';
+  html += '<th>Days</th><th>Supplier</th><th>Ref</th><th>Type</th><th style="text-align:right">FCY</th><th style="text-align:right">GBP Due</th><th>Due</th><th>Status</th>';
   html += '</tr></thead><tbody>' + (rows || '<tr><td colspan="8" style="color:#475569;text-align:center;padding:20px">No upcoming payments</td></tr>') + '</tbody></table></div></div>';
   html += '<div class="card" style="padding:16px"><div style="font-size:14px;font-weight:600;margin-bottom:4px">5% Margin Deposit Tracker</div>';
   html += '<div style="font-size:11px;color:#64748b;margin-bottom:10px">Total margin held: <strong style="color:#818cf8">GBP ' + fmt(totDep) + '</strong></div>';

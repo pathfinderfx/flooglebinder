@@ -35,10 +35,21 @@ td { padding:8px 6px; border-bottom:1px solid #ffffff06; }
 .login-box { background:linear-gradient(145deg,#1a2332,#141d2b); border:1px solid #ffffff08; border-radius:12px; padding:28px 32px; width:100%; max-width:360px; }
 .login-input { width:100%; padding:8px 12px; border-radius:6px; border:1px solid #334155; background:#0f172a; color:#e2e8f0; font-size:13px; font-family:'DM Sans',sans-serif; outline:none; }
 .login-btn { width:100%; padding:10px; border-radius:6px; border:none; background:#38bdf8; color:#0b111e; font-size:13px; font-weight:600; cursor:pointer; font-family:'DM Sans',sans-serif; }
+.edit-btn { padding:3px 8px; border-radius:4px; border:1px solid #334155; background:transparent; color:#64748b; font-size:10px; cursor:pointer; white-space:nowrap; font-family:'DM Sans',sans-serif; }
+.edit-btn:hover { border-color:#38bdf8; color:#38bdf8; }
+.modal-overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.7); z-index:1000; align-items:center; justify-content:center; padding:20px; }
+.modal-overlay.open { display:flex; }
+.modal-box { background:linear-gradient(145deg,#1a2332,#141d2b); border:1px solid #334155; border-radius:14px; padding:24px; width:100%; max-width:440px; }
+.modal-label { font-size:10px; color:#64748b; text-transform:uppercase; letter-spacing:1px; display:block; margin-bottom:6px; font-family:'DM Mono',monospace; }
+.modal-input { width:100%; padding:8px 10px; border-radius:6px; border:1px solid #334155; background:#0f172a; color:#e2e8f0; font-size:13px; font-family:'DM Sans',sans-serif; outline:none; }
+.modal-input:focus { border-color:#38bdf8; }
+.modal-select { width:100%; padding:8px 10px; border-radius:6px; border:1px solid #334155; background:#0f172a; color:#e2e8f0; font-size:13px; font-family:'DM Sans',sans-serif; outline:none; appearance:none; }
+.modal-select:focus { border-color:#38bdf8; }
 </style>
 </head>
 <body>
 
+<!-- ── LOGIN ─────────────────────────────────────────────────────────── -->
 <div id="login" class="login-wrap">
   <div style="text-align:center">
     <div class="mono" style="font-size:10px;letter-spacing:3px;color:#475569;text-transform:uppercase">FX Command Centre</div>
@@ -60,13 +71,66 @@ td { padding:8px 6px; border-bottom:1px solid #ffffff06; }
   <div style="font-size:11px;color:#334155">Pathfinder FX - Confidential</div>
 </div>
 
+<!-- ── LOADING ────────────────────────────────────────────────────────── -->
 <div id="loading" style="display:none;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;gap:12px">
   <div class="mono" style="font-size:10px;letter-spacing:3px;color:#475569;text-transform:uppercase">FX Command Centre</div>
   <div style="font-size:24px;font-weight:700;background:linear-gradient(135deg,#38bdf8,#818cf8);-webkit-background-clip:text;-webkit-text-fill-color:transparent">Flooglebinder Ltd</div>
   <div style="color:#475569;font-size:12px">Loading live data...</div>
 </div>
 
+<!-- ── DASHBOARD ──────────────────────────────────────────────────────── -->
 <div id="app" style="display:none"></div>
+
+<!-- ── EDIT MODAL ─────────────────────────────────────────────────────── -->
+<div id="edit-modal" class="modal-overlay">
+  <div class="modal-box">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:20px">
+      <div>
+        <div id="modal-title" style="font-size:15px;font-weight:600"></div>
+        <div id="modal-sub" style="font-size:11px;color:#64748b;margin-top:3px"></div>
+      </div>
+      <button onclick="closeModal()" style="background:transparent;border:none;color:#64748b;font-size:22px;cursor:pointer;line-height:1;padding:0 2px">&times;</button>
+    </div>
+
+    <div style="margin-bottom:14px">
+      <label class="modal-label">Status</label>
+      <select id="edit-status" class="modal-select">
+        <option value="unhedged">Unhedged</option>
+        <option value="fwd_secured">FWD Secured</option>
+        <option value="deposit_received">Deposit Received</option>
+        <option value="funded">Funded</option>
+        <option value="payment_instructed">Instructed</option>
+        <option value="settled">Settled</option>
+      </select>
+    </div>
+
+    <div style="margin-bottom:14px">
+      <label class="modal-label">Amount (<span id="edit-ccy-label"></span>)</label>
+      <input id="edit-amount" type="number" step="0.01" class="modal-input">
+    </div>
+
+    <div style="margin-bottom:14px">
+      <label class="modal-label">Due Date</label>
+      <input id="edit-due" type="date" class="modal-input">
+    </div>
+
+    <div style="margin-bottom:20px">
+      <label class="modal-label">Note (optional)</label>
+      <textarea id="edit-note" rows="3" placeholder="Reason for change..." class="modal-input" style="resize:vertical"></textarea>
+    </div>
+
+    <div style="margin-bottom:20px;padding:8px 12px;background:#0f172a;border-radius:6px;display:flex;justify-content:space-between;align-items:center">
+      <span style="font-size:11px;color:#64748b">Changing as</span>
+      <span id="edit-user" style="font-size:11px;color:#94a3b8;font-weight:500"></span>
+    </div>
+
+    <div style="display:flex;gap:10px">
+      <button onclick="closeModal()" style="flex:1;padding:9px;border-radius:6px;border:1px solid #334155;background:transparent;color:#94a3b8;font-size:13px;cursor:pointer;font-family:'DM Sans',sans-serif">Cancel</button>
+      <button onclick="saveEdit()" id="modal-save-btn" style="flex:2;padding:9px;border-radius:6px;border:none;background:#38bdf8;color:#0b111e;font-size:13px;font-weight:600;cursor:pointer;font-family:'DM Sans',sans-serif">Save Changes</button>
+    </div>
+    <div id="modal-err" style="display:none;margin-top:10px;font-size:12px;color:#ef4444;text-align:center"></div>
+  </div>
+</div>
 
 <script>
 var SB_URL = "https://mkviozvkuvsdmusexbcv.supabase.co";
@@ -77,6 +141,8 @@ var SUPPLIERS = [];
 var activeTab = "overview";
 var openSupp = null;
 var budgets = {EUR:1.16, USD:1.30, ZAR:23.0, THB:44.0};
+var CURRENT_USER = "";
+var EDIT_TARGET = null;
 
 var HEDGED_STATUSES  = ["fwd_secured", "funded", "deposit_received", "payment_instructed"];
 var SETTLED_STATUSES = ["settled"];
@@ -90,13 +156,27 @@ var ST = {
   unhedged:           {label:"Unhedged",          color:"#ef4444", bg:"#dc262618"}
 };
 
-function isHedged(status)  { return HEDGED_STATUSES.indexOf(status) >= 0; }
-function isSettled(status) { return SETTLED_STATUSES.indexOf(status) >= 0; }
+function isHedged(s)  { return HEDGED_STATUSES.indexOf(s) >= 0; }
+function isSettled(s) { return SETTLED_STATUSES.indexOf(s) >= 0; }
 
 function sbFetch(path) {
   return fetch(SB_URL + "/rest/v1/" + path, {
     headers: {"apikey": SB_KEY, "Authorization": "Bearer " + SB_KEY}
   }).then(function(r){ return r.json(); });
+}
+
+function sbWrite(method, path, body) {
+  var token = sessionStorage.getItem("sb_token");
+  return fetch(SB_URL + "/rest/v1/" + path, {
+    method: method,
+    headers: {
+      "apikey":        SB_KEY,
+      "Authorization": "Bearer " + (token || SB_KEY),
+      "Content-Type":  "application/json",
+      "Prefer":        "return=minimal"
+    },
+    body: JSON.stringify(body)
+  });
 }
 
 function fmt(n) { return n != null ? n.toLocaleString("en-GB", {minimumFractionDigits:2, maximumFractionDigits:2}) : "--"; }
@@ -119,22 +199,126 @@ function buildSuppliers(sRows, pRows) {
         var type = p.payment_type || "--";
         if (p.payment_pct) type = type.charAt(0).toUpperCase() + type.slice(1) + " " + p.payment_pct + "%";
         return {
-          ref:    p.invoice_refs   || "--",
-          type:   type,
-          fcyAmt: parseFloat(p.fcy_amount)    || 0,
-          rate:   p.forward_rate   ? parseFloat(p.forward_rate) : null,
-          status: p.status         || "unhedged",
-          due:    p.due_date       || "TBC",
-          fwd:    p.trade_id       || null,
-          dep:    p.security_dep   ? parseFloat(p.security_dep) : null,
-          depDue: p.security_dep_due || null,
-          ccPayRef: p.cc_pay_ref   || null,
-          notes:  p.notes         || null
+          id:       p.id,
+          ref:      p.invoice_refs    || "--",
+          type:     type,
+          fcyAmt:   parseFloat(p.fcy_amount)    || 0,
+          rate:     p.forward_rate    ? parseFloat(p.forward_rate) : null,
+          status:   p.status          || "unhedged",
+          due:      p.due_date        || "TBC",
+          fwd:      p.trade_id        || null,
+          dep:      p.security_dep    ? parseFloat(p.security_dep) : null,
+          depDue:   p.security_dep_due|| null,
+          ccPayRef: p.cc_pay_ref      || null,
+          notes:    p.notes           || null
         };
       })
     };
   }).filter(function(s){ return s.payments.length > 0; });
 }
+
+// ── EDIT MODAL ────────────────────────────────────────────────────────────
+
+function editPayment(id, supplier, ref, ccy, status, amount, due) {
+  EDIT_TARGET = {id:id, supplier:supplier, ref:ref, ccy:ccy,
+                 oldStatus:status, oldAmount:amount, oldDue:due};
+  document.getElementById("modal-title").textContent = supplier + " — " + ref;
+  document.getElementById("modal-sub").textContent   = "Edit payment details";
+  document.getElementById("edit-status").value       = status;
+  document.getElementById("edit-ccy-label").textContent = ccy;
+  document.getElementById("edit-amount").value       = amount;
+  document.getElementById("edit-due").value          = (due && due !== "TBC") ? due : "";
+  document.getElementById("edit-note").value         = "";
+  document.getElementById("edit-user").textContent   = CURRENT_USER || "unknown";
+  document.getElementById("modal-err").style.display = "none";
+  document.getElementById("modal-save-btn").textContent = "Save Changes";
+  document.getElementById("modal-save-btn").disabled = false;
+  document.getElementById("edit-modal").classList.add("open");
+}
+
+function closeModal() {
+  document.getElementById("edit-modal").classList.remove("open");
+  EDIT_TARGET = null;
+}
+
+function saveEdit() {
+  if (!EDIT_TARGET) return;
+
+  var newStatus = document.getElementById("edit-status").value;
+  var newAmount = parseFloat(document.getElementById("edit-amount").value);
+  var newDue    = document.getElementById("edit-due").value || null;
+  var note      = document.getElementById("edit-note").value.trim() || null;
+  var btn       = document.getElementById("modal-save-btn");
+  var err       = document.getElementById("modal-err");
+
+  var patch   = {};
+  var changes = {};
+
+  if (newStatus !== EDIT_TARGET.oldStatus) {
+    patch.status = newStatus;
+    changes.status = {from: EDIT_TARGET.oldStatus, to: newStatus};
+  }
+  if (newAmount !== EDIT_TARGET.oldAmount) {
+    patch.fcy_amount = newAmount;
+    changes.fcy_amount = {from: EDIT_TARGET.oldAmount, to: newAmount};
+  }
+  if (newDue !== EDIT_TARGET.oldDue) {
+    patch.due_date = newDue;
+    changes.due_date = {from: EDIT_TARGET.oldDue, to: newDue};
+  }
+
+  if (Object.keys(patch).length === 0 && !note) { closeModal(); return; }
+
+  patch.updated_at = new Date().toISOString();
+
+  btn.textContent = "Saving...";
+  btn.disabled    = true;
+  err.style.display = "none";
+
+  var patchPromise = Object.keys(patch).length > 1
+    ? sbWrite("PATCH", "payments?id=eq." + EDIT_TARGET.id, patch)
+    : Promise.resolve({ok: true});
+
+  var logPromise = sbWrite("POST", "change_log", {
+    payment_id: EDIT_TARGET.id,
+    changed_by: CURRENT_USER || "unknown",
+    changes:    changes,
+    note:       note
+  });
+
+  Promise.all([patchPromise, logPromise])
+    .then(function(results) {
+      var allOk = results.every(function(r){ return r.ok !== false; });
+      if (!allOk) throw new Error("Supabase returned an error — check RLS policies.");
+
+      // Update local state so UI reflects changes immediately
+      SUPPLIERS.forEach(function(s) {
+        s.payments.forEach(function(p) {
+          if (p.id === EDIT_TARGET.id) {
+            if (patch.status)     p.status = newStatus;
+            if (patch.fcy_amount) p.fcyAmt = newAmount;
+            if ("due_date" in patch) p.due = newDue || "TBC";
+          }
+        });
+      });
+
+      closeModal();
+      render();
+    })
+    .catch(function(e) {
+      err.textContent   = e.message || "Save failed. Please try again.";
+      err.style.display = "block";
+      btn.textContent   = "Save Changes";
+      btn.disabled      = false;
+    });
+}
+
+// Close modal on overlay click
+document.getElementById("edit-modal").addEventListener("click", function(e) {
+  if (e.target === this) closeModal();
+});
+
+// ── DATA CALCULATIONS ─────────────────────────────────────────────────────
 
 function calcData() {
   var tG=0, sG=0, fG=0, uG=0, tPay=0;
@@ -150,14 +334,11 @@ function calcData() {
       if (p.rate) cc[s.ccy].rates.push({rate:p.rate, gbp:g});
 
       if (isSettled(p.status)) {
-        sG += g;
-        cc[s.ccy].settled += g;
+        sG += g; cc[s.ccy].settled += g;
       } else if (isHedged(p.status)) {
-        fG += g;
-        cc[s.ccy].fwd += g;
+        fG += g; cc[s.ccy].fwd += g;
       } else {
-        uG += g;
-        cc[s.ccy].unhedged += g;
+        uG += g; cc[s.ccy].unhedged += g;
       }
 
       if (!isSettled(p.status)) upcoming.push(Object.assign({}, p, {supplier:s.name, ccy:s.ccy}));
@@ -169,7 +350,7 @@ function calcData() {
       }
 
       var m = p.due && p.due !== "TBC" ? p.due.substring(0,7) : null;
-      if (m && !isSettled(p.status)) cf[m] = (cf[m] || 0) + g;
+      if (m && !isSettled(p.status)) cf[m] = (cf[m]||0) + g;
     });
   });
 
@@ -187,17 +368,28 @@ function calcData() {
   return {tG:tG, sG:sG, fG:fG, uG:uG, tPay:tPay, cc:cc, upcoming:upcoming, deps:deps, mats:mats, cf:cf, wavg:wavg};
 }
 
-function setTab(t) { activeTab = t; render(); }
-function toggleSupp(name) { openSupp = openSupp === name ? null : name; render(); }
-function updateBudget(c, v) { budgets[c] = parseFloat(v) || 0; render(); }
-function signOut() { sessionStorage.removeItem("sb_token"); location.reload(); }
+// ── RENDER ────────────────────────────────────────────────────────────────
+
+function setTab(t)           { activeTab = t; render(); }
+function toggleSupp(name)    { openSupp = openSupp === name ? null : name; render(); }
+function updateBudget(c, v)  { budgets[c] = parseFloat(v) || 0; render(); }
+function signOut()           { sessionStorage.removeItem("sb_token"); location.reload(); }
+
+function editBtn(p, ccy) {
+  var due = (p.due && p.due !== "TBC") ? p.due : "";
+  return '<button class="edit-btn" onclick="editPayment(' +
+    "'" + p.id + "','" + (p.supplier||"").replace(/'/g,"\\'") + "','" +
+    p.ref.replace(/'/g,"\\'") + "','" + ccy + "','" + p.status + "'," +
+    p.fcyAmt + ",'" + due + "')" +
+    '">&#9998; Edit</button>';
+}
 
 function render() {
   var d = calcData();
   var pS = d.tG > 0 ? ((d.sG/d.tG)*100).toFixed(1) : "0.0";
   var pF = d.tG > 0 ? ((d.fG/d.tG)*100).toFixed(1) : "0.0";
   var pU = d.tG > 0 ? ((d.uG/d.tG)*100).toFixed(1) : "0.0";
-  var totDep = d.deps.reduce(function(a,m){ return a+m.amount; }, 0);
+  var totDep   = d.deps.reduce(function(a,m){ return a+m.amount; }, 0);
   var todayStr = TODAY.toLocaleDateString("en-GB", {day:"numeric", month:"short", year:"numeric"});
   var bPnl = 0;
   SUPPLIERS.forEach(function(s) {
@@ -217,48 +409,48 @@ function render() {
   html += '</div></div>';
 
   var kpis = [
-    {l:"Total Exposure",   v:"GBP " + fmt(d.tG), s:SUPPLIERS.length + " suppliers - " + d.tPay + " payments", a:"#38bdf8"},
-    {l:"Hedged",           v:"GBP " + fmt(d.fG), s:pF + "% rate-locked",  a:"#f59e0b"},
-    {l:"Unhedged",         v:"GBP " + fmt(d.uG), s:pU + "% exposed",      a:"#ef4444"},
-    {l:"Margin Held",      v:"GBP " + fmt(totDep), s:d.deps.length + " deposits", a:"#818cf8"}
+    {l:"Total Exposure", v:"GBP "+fmt(d.tG), s:SUPPLIERS.length+" suppliers - "+d.tPay+" payments", a:"#38bdf8"},
+    {l:"Hedged",         v:"GBP "+fmt(d.fG), s:pF+"% rate-locked",  a:"#f59e0b"},
+    {l:"Unhedged",       v:"GBP "+fmt(d.uG), s:pU+"% exposed",      a:"#ef4444"},
+    {l:"Margin Held",    v:"GBP "+fmt(totDep), s:d.deps.length+" deposits", a:"#818cf8"}
   ];
   html += '<div class="kpi-grid">';
   kpis.forEach(function(k) {
-    html += '<div class="card kpi-card" style="border-left:3px solid ' + k.a + '">';
-    html += '<div class="kpi-label">' + k.l + '</div>';
-    html += '<div class="kpi-value">' + k.v + '</div>';
-    html += '<div class="kpi-sub" style="color:' + k.a + '">' + k.s + '</div></div>';
+    html += '<div class="card kpi-card" style="border-left:3px solid '+k.a+'">';
+    html += '<div class="kpi-label">'+k.l+'</div>';
+    html += '<div class="kpi-value">'+k.v+'</div>';
+    html += '<div class="kpi-sub" style="color:'+k.a+'">'+k.s+'</div></div>';
   });
   html += '</div>';
 
-  var covered = (parseFloat(pS) + parseFloat(pF)).toFixed(1);
+  var covered = (parseFloat(pS)+parseFloat(pF)).toFixed(1);
   html += '<div class="card" style="padding:12px 16px;margin-bottom:14px">';
   html += '<div style="display:flex;justify-content:space-between;margin-bottom:6px"><span style="font-size:12px;font-weight:600">Hedging Coverage</span>';
-  html += '<span class="mono" style="font-size:11px;color:#94a3b8">' + covered + '% protected</span></div>';
+  html += '<span class="mono" style="font-size:11px;color:#94a3b8">'+covered+'% protected</span></div>';
   html += '<div class="coverage-bar">';
-  html += '<div style="width:' + pS + '%;background:linear-gradient(90deg,#16a34a,#22c55e);display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;color:#fff">' + (parseFloat(pS)>5?pS+"%":"") + '</div>';
-  html += '<div style="width:' + pF + '%;background:linear-gradient(90deg,#d97706,#f59e0b);display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;color:#fff">' + (parseFloat(pF)>5?pF+"%":"") + '</div>';
-  html += '<div style="width:' + pU + '%;background:linear-gradient(90deg,#dc2626,#ef4444);display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;color:#fff">' + (parseFloat(pU)>5?pU+"%":"") + '</div>';
+  html += '<div style="width:'+pS+'%;background:linear-gradient(90deg,#16a34a,#22c55e);display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;color:#fff">'+(parseFloat(pS)>5?pS+"%":"")+'</div>';
+  html += '<div style="width:'+pF+'%;background:linear-gradient(90deg,#d97706,#f59e0b);display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;color:#fff">'+(parseFloat(pF)>5?pF+"%":"")+'</div>';
+  html += '<div style="width:'+pU+'%;background:linear-gradient(90deg,#dc2626,#ef4444);display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;color:#fff">'+(parseFloat(pU)>5?pU+"%":"")+'</div>';
   html += '</div>';
   html += '<div style="display:flex;gap:14px">';
   [{c:"#22c55e",l:"Settled"},{c:"#f59e0b",l:"Hedged (all types)"},{c:"#ef4444",l:"Unhedged"}].forEach(function(x) {
-    html += '<div style="display:flex;align-items:center;gap:5px;font-size:10px;color:#94a3b8"><div style="width:8px;height:8px;border-radius:2px;background:' + x.c + '"></div>' + x.l + '</div>';
+    html += '<div style="display:flex;align-items:center;gap:5px;font-size:10px;color:#94a3b8"><div style="width:8px;height:8px;border-radius:2px;background:'+x.c+'"></div>'+x.l+'</div>';
   });
   html += '</div></div>';
 
   if (d.mats.length > 0) {
     html += '<div class="alert-box" style="display:flex;gap:10px;margin-bottom:14px"><span style="font-size:16px">!</span><div>';
     html += '<div style="font-size:12px;font-weight:600;color:#f59e0b">Hedged Payments Maturing Within 30 Days</div>';
-    html += '<div style="font-size:11px;color:#94a3b8;margin-top:2px">' + d.mats.map(function(m){ return m.supplier + " " + m.ref + ": " + fmt(m.fcyAmt) + " " + m.ccy + " in " + m.days + "d"; }).join(" · ") + '</div>';
+    html += '<div style="font-size:11px;color:#94a3b8;margin-top:2px">'+d.mats.map(function(m){ return m.supplier+" "+m.ref+": "+fmt(m.fcyAmt)+" "+m.ccy+" in "+m.days+"d"; }).join(" · ")+'</div>';
     html += '</div></div>';
   }
 
   html += '<div class="tabs">';
   [["overview","Suppliers"],["rates","Rates & Budget"],["upcoming","Upcoming"],["cashflow","Cash Flow"],["currency","By Currency"]].forEach(function(t) {
-    html += '<button class="tab' + (activeTab===t[0]?" active":"") + '" onclick="setTab(\'' + t[0] + '\')">' + t[1] + '</button>';
+    html += '<button class="tab'+(activeTab===t[0]?" active":"")+'" onclick="setTab(\''+t[0]+'\')">'+t[1]+'</button>';
   });
   html += '</div>';
-  html += '<div id="tab-content">' + renderTab(d, pS, pF, pU, totDep, bPnl) + '</div>';
+  html += '<div id="tab-content">'+renderTab(d,pS,pF,pU,totDep,bPnl)+'</div>';
   html += '<div style="margin-top:24px;padding:12px 0;border-top:1px solid #ffffff08;display:flex;justify-content:space-between;font-size:10px;color:#334155">';
   html += '<div>Live data - Pathfinder FX</div><div>Confidential - Flooglebinder Ltd</div></div>';
 
@@ -274,6 +466,8 @@ function renderTab(d, pS, pF, pU, totDep, bPnl) {
   return "";
 }
 
+// ── TAB: SUPPLIERS (OVERVIEW) ─────────────────────────────────────────────
+
 function renderOverview() {
   var html = "";
   SUPPLIERS.forEach(function(s) {
@@ -286,42 +480,44 @@ function renderOverview() {
       else                         unhedged += g;
     });
     var sT = settled + fwd + unhedged;
-    var allDone  = s.payments.every(function(p){ return isSettled(p.status); });
-    var hasOpen  = s.payments.some(function(p){ return !isSettled(p.status) && !isHedged(p.status); });
+    var allDone = s.payments.every(function(p){ return isSettled(p.status); });
+    var hasOpen = s.payments.some(function(p){ return !isSettled(p.status) && !isHedged(p.status); });
     var sc = allDone ? "#22c55e" : hasOpen ? "#ef4444" : "#f59e0b";
     var si = allDone ? "OK" : hasOpen ? "!" : "~";
-    html += '<div class="card supplier-row" style="border:1px solid ' + sc + '18">';
-    html += '<div class="supplier-header" onclick="toggleSupp(\'' + s.name.replace(/'/g, "\\'") + '\')">';
+    html += '<div class="card supplier-row" style="border:1px solid '+sc+'18">';
+    html += '<div class="supplier-header" onclick="toggleSupp(\''+s.name.replace(/'/g,"\\'")+'\''+')">';
     html += '<div style="display:flex;align-items:center;gap:12px">';
-    html += '<div style="width:34px;height:34px;border-radius:7px;background:' + sc + '12;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:' + sc + '">' + si + '</div>';
-    html += '<div><div style="font-weight:600;font-size:14px">' + s.name + '</div>';
-    html += '<div style="font-size:11px;color:#475569">' + s.ccy + ' - ' + s.pair + ' - ' + s.payments.length + ' payment' + (s.payments.length>1?"s":"") + '</div></div></div>';
+    html += '<div style="width:34px;height:34px;border-radius:7px;background:'+sc+'12;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:'+sc+'">'+si+'</div>';
+    html += '<div><div style="font-weight:600;font-size:14px">'+s.name+'</div>';
+    html += '<div style="font-size:11px;color:#475569">'+s.ccy+' - '+s.pair+' - '+s.payments.length+' payment'+(s.payments.length>1?"s":"")+'</div></div></div>';
     html += '<div style="display:flex;align-items:center;gap:12px">';
-    html += '<div style="font-size:15px;font-weight:700">GBP ' + fmt(sT) + '</div>';
+    html += '<div style="font-size:15px;font-weight:700">GBP '+fmt(sT)+'</div>';
     html += '<div style="display:flex;gap:4px;flex-wrap:wrap">';
-    if (settled  > 0) html += '<span class="badge" style="background:#22c55e20;color:#22c55e">GBP ' + fmt(settled)  + ' settled</span>';
-    if (fwd      > 0) html += '<span class="badge" style="background:#f59e0b20;color:#f59e0b">GBP ' + fmt(fwd)     + ' hedged</span>';
-    if (unhedged > 0) html += '<span class="badge" style="background:#ef444420;color:#ef4444">GBP ' + fmt(unhedged) + ' open</span>';
+    if (settled  > 0) html += '<span class="badge" style="background:#22c55e20;color:#22c55e">GBP '+fmt(settled)+' settled</span>';
+    if (fwd      > 0) html += '<span class="badge" style="background:#f59e0b20;color:#f59e0b">GBP '+fmt(fwd)+' hedged</span>';
+    if (unhedged > 0) html += '<span class="badge" style="background:#ef444420;color:#ef4444">GBP '+fmt(unhedged)+' open</span>';
     html += '</div><div style="color:#475569;font-size:16px">v</div></div></div>';
     if (isOpen) {
-      html += '<div class="supplier-detail"><table style="min-width:700px"><thead><tr>';
-      html += '<th>Ref</th><th>Type</th><th style="text-align:right">' + s.ccy + '</th><th style="text-align:right">Rate</th><th style="text-align:right">GBP Equiv</th><th>Due</th><th>Status</th><th>Trade Ref</th><th>CC Pay Ref</th>';
+      html += '<div class="supplier-detail"><table style="min-width:760px"><thead><tr>';
+      html += '<th>Ref</th><th>Type</th><th style="text-align:right">'+s.ccy+'</th><th style="text-align:right">Rate</th><th style="text-align:right">GBP Equiv</th><th>Due</th><th>Status</th><th>Trade Ref</th><th>CC Pay Ref</th><th></th>';
       html += '</tr></thead><tbody>';
       s.payments.forEach(function(p) {
-        var st = ST[p.status] || ST.unhedged;
-        var g  = gbpVal(p.fcyAmt, p.rate, s.ccy);
-        var dd = daysUntil(p.due);
+        var st  = ST[p.status] || ST.unhedged;
+        var g   = gbpVal(p.fcyAmt, p.rate, s.ccy);
+        var dd  = daysUntil(p.due);
         var urg = dd >= 0 && dd <= 14 && !isSettled(p.status);
+        var eb  = editBtn(Object.assign({supplier:s.name}, p), s.ccy);
         html += '<tr>';
-        html += '<td>' + p.ref + '</td>';
-        html += '<td style="color:#94a3b8">' + p.type + '</td>';
-        html += '<td class="mono" style="text-align:right">' + fmt(p.fcyAmt) + ' ' + s.ccy + '</td>';
-        html += '<td class="mono" style="text-align:right;color:#94a3b8">' + (p.rate ? fmtD(p.rate,4) : "--") + '</td>';
-        html += '<td class="mono" style="text-align:right;font-weight:600">GBP ' + fmt(g) + '</td>';
-        html += '<td class="mono" style="color:' + (urg?"#ef4444":"#94a3b8") + '">' + fmtDate(p.due) + (urg?" !":"") + '</td>';
-        html += '<td><span class="badge" style="background:' + st.bg + ';color:' + st.color + '">' + st.label + '</span></td>';
-        html += '<td class="mono" style="font-size:9px;color:#475569">' + (p.fwd      || "--") + '</td>';
-        html += '<td class="mono" style="font-size:9px;color:#475569">' + (p.ccPayRef || "--") + '</td>';
+        html += '<td>'+p.ref+'</td>';
+        html += '<td style="color:#94a3b8">'+p.type+'</td>';
+        html += '<td class="mono" style="text-align:right">'+fmt(p.fcyAmt)+' '+s.ccy+'</td>';
+        html += '<td class="mono" style="text-align:right;color:#94a3b8">'+(p.rate ? fmtD(p.rate,4) : "--")+'</td>';
+        html += '<td class="mono" style="text-align:right;font-weight:600">GBP '+fmt(g)+'</td>';
+        html += '<td class="mono" style="color:'+(urg?"#ef4444":"#94a3b8")+'">'+fmtDate(p.due)+(urg?" !":"")+'</td>';
+        html += '<td><span class="badge" style="background:'+st.bg+';color:'+st.color+'">'+st.label+'</span></td>';
+        html += '<td class="mono" style="font-size:9px;color:#475569">'+(p.fwd      || "--")+'</td>';
+        html += '<td class="mono" style="font-size:9px;color:#475569">'+(p.ccPayRef || "--")+'</td>';
+        html += '<td>'+eb+'</td>';
         html += '</tr>';
       });
       html += '</tbody></table></div>';
@@ -331,20 +527,22 @@ function renderOverview() {
   return html;
 }
 
+// ── TAB: RATES & BUDGET ───────────────────────────────────────────────────
+
 function renderRates(d, bPnl) {
   var fwdRows = "";
   SUPPLIERS.forEach(function(s) {
     s.payments.filter(function(p){ return isHedged(p.status) && p.rate; }).forEach(function(p) {
       var aB = p.fcyAmt/p.rate, aS = p.fcyAmt/SPOT[s.ccy], mtm = aS - aB;
       var st = ST[p.status] || ST.fwd_secured;
-      fwdRows += '<tr><td>' + s.name + '</td><td style="color:#94a3b8">' + p.ref + '</td>';
-      fwdRows += '<td><span class="badge" style="background:' + st.bg + ';color:' + st.color + ';font-size:9px">' + st.label + '</span></td>';
-      fwdRows += '<td class="mono" style="text-align:right">' + fmt(p.fcyAmt) + ' ' + s.ccy + '</td>';
-      fwdRows += '<td class="mono" style="text-align:right">' + fmtD(p.rate,4) + '</td>';
-      fwdRows += '<td class="mono" style="text-align:right;color:#64748b">' + fmtD(SPOT[s.ccy],4) + '</td>';
-      fwdRows += '<td class="mono" style="text-align:right">GBP ' + fmt(aB) + '</td>';
-      fwdRows += '<td class="mono" style="text-align:right;color:#64748b">GBP ' + fmt(aS) + '</td>';
-      fwdRows += '<td class="mono" style="text-align:right;font-weight:600;color:' + (mtm>=0?"#22c55e":"#ef4444") + '">' + (mtm>=0?"+":"") + 'GBP ' + fmt(Math.abs(mtm)) + '</td></tr>';
+      fwdRows += '<tr><td>'+s.name+'</td><td style="color:#94a3b8">'+p.ref+'</td>';
+      fwdRows += '<td><span class="badge" style="background:'+st.bg+';color:'+st.color+';font-size:9px">'+st.label+'</span></td>';
+      fwdRows += '<td class="mono" style="text-align:right">'+fmt(p.fcyAmt)+' '+s.ccy+'</td>';
+      fwdRows += '<td class="mono" style="text-align:right">'+fmtD(p.rate,4)+'</td>';
+      fwdRows += '<td class="mono" style="text-align:right;color:#64748b">'+fmtD(SPOT[s.ccy],4)+'</td>';
+      fwdRows += '<td class="mono" style="text-align:right">GBP '+fmt(aB)+'</td>';
+      fwdRows += '<td class="mono" style="text-align:right;color:#64748b">GBP '+fmt(aS)+'</td>';
+      fwdRows += '<td class="mono" style="text-align:right;font-weight:600;color:'+(mtm>=0?"#22c55e":"#ef4444")+'">'+(mtm>=0?"+":"")+'GBP '+fmt(Math.abs(mtm))+'</td></tr>';
     });
   });
   var tMtm = 0;
@@ -359,74 +557,79 @@ function renderRates(d, bPnl) {
   Object.keys(d.wavg).forEach(function(c) {
     var r = d.wavg[c], sp = SPOT[c], better = r >= sp;
     html += '<div style="background:#0f172a;border-radius:8px;padding:14px">';
-    html += '<div style="font-size:11px;color:#64748b;margin-bottom:4px">GBP/' + c + '</div>';
+    html += '<div style="font-size:11px;color:#64748b;margin-bottom:4px">GBP/'+c+'</div>';
     html += '<div style="display:flex;justify-content:space-between;align-items:baseline">';
-    html += '<div><span style="font-size:22px;font-weight:700">' + fmtD(r,4) + '</span><span style="font-size:10px;color:#475569;margin-left:4px">wt avg</span></div>';
-    html += '<div style="text-align:right"><div class="mono" style="font-size:13px;color:#94a3b8">' + fmtD(sp,4) + '</div><div style="font-size:10px;color:#475569">spot</div></div></div>';
-    html += '<div style="margin-top:6px;font-size:11px;font-weight:600;color:' + (better?"#22c55e":"#ef4444") + '">' + (better?"up":"down") + ' ' + Math.abs(((r-sp)/sp)*100).toFixed(2) + '% ' + (better?"better":"worse") + ' than spot</div></div>';
+    html += '<div><span style="font-size:22px;font-weight:700">'+fmtD(r,4)+'</span><span style="font-size:10px;color:#475569;margin-left:4px">wt avg</span></div>';
+    html += '<div style="text-align:right"><div class="mono" style="font-size:13px;color:#94a3b8">'+fmtD(sp,4)+'</div><div style="font-size:10px;color:#475569">spot</div></div></div>';
+    html += '<div style="margin-top:6px;font-size:11px;font-weight:600;color:'+(better?"#22c55e":"#ef4444")+'">'+(better?"up":"down")+' '+Math.abs(((r-sp)/sp)*100).toFixed(2)+'% '+(better?"better":"worse")+' than spot</div></div>';
   });
   html += '</div></div>';
   html += '<div class="card" style="padding:16px"><div style="font-size:14px;font-weight:600;margin-bottom:4px">Budget Rate Comparison</div>';
   html += '<div style="font-size:11px;color:#64748b;margin-bottom:12px">Enter budget rates to show performance vs plan</div>';
   html += '<div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:14px">';
   Object.keys(budgets).forEach(function(c) {
-    html += '<div style="display:flex;align-items:center;gap:6px"><label class="mono" style="font-size:11px;color:#94a3b8;min-width:55px">GBP/' + c + '</label>';
-    html += '<input type="number" step="0.001" value="' + budgets[c] + '" onchange="updateBudget(\'' + c + '\',this.value)" style="width:80px;padding:4px 8px;border-radius:4px;border:1px solid #334155;background:#0f172a;color:#e2e8f0;font-size:12px;font-family:monospace"></div>';
+    html += '<div style="display:flex;align-items:center;gap:6px"><label class="mono" style="font-size:11px;color:#94a3b8;min-width:55px">GBP/'+c+'</label>';
+    html += '<input type="number" step="0.001" value="'+budgets[c]+'" onchange="updateBudget(\''+c+'\',this.value)" style="width:80px;padding:4px 8px;border-radius:4px;border:1px solid #334155;background:#0f172a;color:#e2e8f0;font-size:12px;font-family:monospace"></div>';
   });
   html += '</div>';
-  html += '<div style="background:' + (bPnl>=0?"#16a34a12":"#dc262612") + ';border-radius:8px;padding:14px;display:flex;align-items:center;justify-content:space-between">';
+  html += '<div style="background:'+(bPnl>=0?"#16a34a12":"#dc262612")+';border-radius:8px;padding:14px;display:flex;align-items:center;justify-content:space-between">';
   html += '<div><div style="font-size:11px;color:#94a3b8">Performance vs Budget</div>';
-  html += '<div style="font-size:24px;font-weight:700;color:' + (bPnl>=0?"#22c55e":"#ef4444") + '">' + (bPnl>=0?"+":"") + 'GBP ' + fmt(Math.abs(bPnl)) + '</div></div>';
-  html += '<div style="font-size:12px;color:#94a3b8;max-width:260px">' + (bPnl>=0?"Rates achieved beat budget.":"Rates behind budget.") + '</div></div></div>';
+  html += '<div style="font-size:24px;font-weight:700;color:'+(bPnl>=0?"#22c55e":"#ef4444")+'">'+(bPnl>=0?"+":"")+'GBP '+fmt(Math.abs(bPnl))+'</div></div>';
+  html += '<div style="font-size:12px;color:#94a3b8;max-width:260px">'+(bPnl>=0?"Rates achieved beat budget.":"Rates behind budget.")+'</div></div></div>';
   html += '<div class="card" style="padding:16px"><div style="font-size:14px;font-weight:600;margin-bottom:4px">Mark-to-Market - All Hedged Positions</div>';
   html += '<div style="font-size:11px;color:#64748b;margin-bottom:10px">Includes FWD Secured, Funded, Deposit Received and Instructed payments</div>';
   html += '<div style="overflow-x:auto"><table style="min-width:750px"><thead><tr>';
   html += '<th>Supplier</th><th>Ref</th><th>Status</th><th style="text-align:right">FCY</th><th style="text-align:right">Booked</th><th style="text-align:right">Spot</th><th style="text-align:right">GBP Booked</th><th style="text-align:right">GBP Spot</th><th style="text-align:right">MTM</th>';
-  html += '</tr></thead><tbody>' + (fwdRows || '<tr><td colspan="9" style="color:#475569;text-align:center;padding:20px">No hedged positions</td></tr>') + '</tbody></table>';
+  html += '</tr></thead><tbody>'+(fwdRows||'<tr><td colspan="9" style="color:#475569;text-align:center;padding:20px">No hedged positions</td></tr>')+'</tbody></table>';
   html += '<div style="display:flex;justify-content:flex-end;padding:10px 0 0;border-top:2px solid #ffffff12;margin-top:4px">';
-  html += '<span class="mono" style="font-weight:700;font-size:14px;color:' + (tMtm>=0?"#22c55e":"#ef4444") + '">Net MTM: ' + (tMtm>=0?"+":"") + 'GBP ' + fmt(Math.abs(tMtm)) + '</span></div></div></div>';
+  html += '<span class="mono" style="font-weight:700;font-size:14px;color:'+(tMtm>=0?"#22c55e":"#ef4444")+'">Net MTM: '+(tMtm>=0?"+":"")+'GBP '+fmt(Math.abs(tMtm))+'</span></div></div></div>';
   html += '</div>';
   return html;
 }
 
+// ── TAB: UPCOMING ─────────────────────────────────────────────────────────
+
 function renderUpcoming(d, totDep) {
   var rows = "";
   d.upcoming.forEach(function(p) {
-    var dd = daysUntil(p.due), st = ST[p.status]||ST.unhedged, g = gbpVal(p.fcyAmt, p.rate, p.ccy);
-    // For Deposit Received rows: 5% margin already held, so show 95% as the net amount still due
-    var gDue = p.status === 'deposit_received' ? g * 0.95 : g;
+    var dd  = daysUntil(p.due), st = ST[p.status]||ST.unhedged, g = gbpVal(p.fcyAmt, p.rate, p.ccy);
+    var gDue = p.status === "deposit_received" ? g * 0.95 : g;
     var dayStr = dd===Infinity?"TBC":dd<0?Math.abs(dd)+"d ago":dd+"d";
     var dayCol = dd===Infinity?"#475569":dd<0?"#ef4444":dd<=14?"#f59e0b":"#94a3b8";
-    rows += '<tr style="background:' + (dd<0?"#dc262608":dd<=14?"#d9770608":"transparent") + '">';
-    rows += '<td class="mono" style="font-weight:700;color:' + dayCol + '">' + dayStr + '</td>';
-    rows += '<td style="font-weight:500">' + p.supplier + '</td>';
-    rows += '<td style="color:#94a3b8">' + p.ref + '</td>';
-    rows += '<td style="color:#64748b">' + p.type + '</td>';
-    rows += '<td class="mono" style="text-align:right">' + fmt(p.fcyAmt) + ' ' + p.ccy + '</td>';
-    rows += '<td class="mono" style="text-align:right;font-weight:600">GBP ' + fmt(gDue) + (p.status==='deposit_received'?'<div style="font-size:9px;color:#818cf8;font-weight:400">net of 5% dep</div>':'') + '</td>';
-    rows += '<td class="mono">' + fmtDate(p.due) + '</td>';
-    rows += '<td><span class="badge" style="background:' + st.bg + ';color:' + st.color + '">' + st.label + '</span></td></tr>';
+    var eb = editBtn(p, p.ccy);
+    rows += '<tr style="background:'+(dd<0?"#dc262608":dd<=14?"#d9770608":"transparent")+'">';
+    rows += '<td class="mono" style="font-weight:700;color:'+dayCol+'">'+dayStr+'</td>';
+    rows += '<td style="font-weight:500">'+p.supplier+'</td>';
+    rows += '<td style="color:#94a3b8">'+p.ref+'</td>';
+    rows += '<td style="color:#64748b">'+p.type+'</td>';
+    rows += '<td class="mono" style="text-align:right">'+fmt(p.fcyAmt)+' '+p.ccy+'</td>';
+    rows += '<td class="mono" style="text-align:right;font-weight:600">GBP '+fmt(gDue)+(p.status==="deposit_received"?'<div style="font-size:9px;color:#818cf8;font-weight:400">net of 5% dep</div>':'')+'</td>';
+    rows += '<td class="mono">'+fmtDate(p.due)+'</td>';
+    rows += '<td><span class="badge" style="background:'+st.bg+';color:'+st.color+'">'+st.label+'</span></td>';
+    rows += '<td>'+eb+'</td></tr>';
   });
   var depRows = "";
   d.deps.forEach(function(m) {
     depRows += '<div style="display:flex;align-items:center;justify-content:space-between;padding:6px 10px;background:#0f172a;border-radius:6px;margin-bottom:6px">';
-    depRows += '<div style="display:flex;align-items:center;gap:8px"><span style="width:6px;height:6px;border-radius:50%;background:' + (m.paid?"#22c55e":"#f59e0b") + ';display:inline-block"></span>';
-    depRows += '<span style="font-size:12px;font-weight:500">' + m.supplier + '</span><span style="font-size:11px;color:#64748b">' + m.ref + '</span></div>';
-    depRows += '<div style="display:flex;align-items:center;gap:10px"><span class="mono" style="font-size:12px;font-weight:600">GBP ' + fmt(m.amount) + '</span>';
-    depRows += '<span style="font-size:10px;color:' + (m.paid?"#22c55e":"#f59e0b") + '">' + (m.paid?"Paid":"Due "+fmtDate(m.due)) + '</span></div></div>';
+    depRows += '<div style="display:flex;align-items:center;gap:8px"><span style="width:6px;height:6px;border-radius:50%;background:'+(m.paid?"#22c55e":"#f59e0b")+';display:inline-block"></span>';
+    depRows += '<span style="font-size:12px;font-weight:500">'+m.supplier+'</span><span style="font-size:11px;color:#64748b">'+m.ref+'</span></div>';
+    depRows += '<div style="display:flex;align-items:center;gap:10px"><span class="mono" style="font-size:12px;font-weight:600">GBP '+fmt(m.amount)+'</span>';
+    depRows += '<span style="font-size:10px;color:'+(m.paid?"#22c55e":"#f59e0b")+'">'+(m.paid?"Paid":"Due "+fmtDate(m.due))+'</span></div></div>';
   });
   var html = '<div style="display:grid;gap:14px">';
   html += '<div class="card" style="overflow:hidden"><div style="padding:14px 16px;border-bottom:1px solid #ffffff08;display:flex;justify-content:space-between;align-items:center">';
   html += '<div style="font-size:14px;font-weight:600">Upcoming Payments and Maturities</div>';
   html += '<div style="font-size:10px;color:#818cf8;font-style:italic">GBP Due is net of 5% margin for Deposit Received rows</div></div>';
-  html += '<div style="overflow-x:auto"><table style="min-width:600px"><thead><tr>';
-  html += '<th>Days</th><th>Supplier</th><th>Ref</th><th>Type</th><th style="text-align:right">FCY</th><th style="text-align:right">GBP Due</th><th>Due</th><th>Status</th>';
-  html += '</tr></thead><tbody>' + (rows || '<tr><td colspan="8" style="color:#475569;text-align:center;padding:20px">No upcoming payments</td></tr>') + '</tbody></table></div></div>';
+  html += '<div style="overflow-x:auto"><table style="min-width:650px"><thead><tr>';
+  html += '<th>Days</th><th>Supplier</th><th>Ref</th><th>Type</th><th style="text-align:right">FCY</th><th style="text-align:right">GBP Due</th><th>Due</th><th>Status</th><th></th>';
+  html += '</tr></thead><tbody>'+(rows||'<tr><td colspan="9" style="color:#475569;text-align:center;padding:20px">No upcoming payments</td></tr>')+'</tbody></table></div></div>';
   html += '<div class="card" style="padding:16px"><div style="font-size:14px;font-weight:600;margin-bottom:4px">5% Margin Deposit Tracker</div>';
-  html += '<div style="font-size:11px;color:#64748b;margin-bottom:10px">Total margin held: <strong style="color:#818cf8">GBP ' + fmt(totDep) + '</strong></div>';
-  html += (depRows || '<div style="font-size:12px;color:#475569">No deposits recorded</div>') + '</div></div>';
+  html += '<div style="font-size:11px;color:#64748b;margin-bottom:10px">Total margin held: <strong style="color:#818cf8">GBP '+fmt(totDep)+'</strong></div>';
+  html += (depRows||'<div style="font-size:12px;color:#475569">No deposits recorded</div>')+'</div></div>';
   return html;
 }
+
+// ── TAB: CASH FLOW ────────────────────────────────────────────────────────
 
 function renderCashflow(d) {
   var months = Object.keys(d.cf).sort();
@@ -437,9 +640,9 @@ function renderCashflow(d) {
     var v = d.cf[m];
     bars += '<div style="margin-bottom:10px">';
     bars += '<div style="display:flex;justify-content:space-between;margin-bottom:4px">';
-    bars += '<span style="font-size:12px;font-weight:500">' + new Date(m+"-01").toLocaleDateString("en-GB",{month:"long",year:"numeric"}) + '</span>';
-    bars += '<span class="mono" style="font-size:13px;font-weight:700">GBP ' + fmt(v) + '</span></div>';
-    bars += '<div style="height:16px;border-radius:4px;background:#0f172a;overflow:hidden"><div style="height:100%;width:' + (v/maxV*100) + '%;background:linear-gradient(90deg,#38bdf8,#818cf8);border-radius:4px"></div></div></div>';
+    bars += '<span style="font-size:12px;font-weight:500">'+new Date(m+"-01").toLocaleDateString("en-GB",{month:"long",year:"numeric"})+'</span>';
+    bars += '<span class="mono" style="font-size:13px;font-weight:700">GBP '+fmt(v)+'</span></div>';
+    bars += '<div style="height:16px;border-radius:4px;background:#0f172a;overflow:hidden"><div style="height:100%;width:'+(v/maxV*100)+'%;background:linear-gradient(90deg,#38bdf8,#818cf8);border-radius:4px"></div></div></div>';
   });
   var total   = vals.reduce(function(a,b){ return a+b; }, 0);
   var settled = SUPPLIERS.reduce(function(a,s){ return a + s.payments.filter(function(p){ return isSettled(p.status); }).length; }, 0);
@@ -449,17 +652,19 @@ function renderCashflow(d) {
   var html = '<div style="display:grid;gap:14px">';
   html += '<div class="card" style="padding:16px"><div style="font-size:14px;font-weight:600;margin-bottom:4px">Projected GBP Outflows</div>';
   html += '<div style="font-size:11px;color:#64748b;margin-bottom:16px">Outstanding payments by month</div>';
-  html += (bars || '<div style="color:#475569;font-size:12px">No outstanding payments</div>');
+  html += (bars||'<div style="color:#475569;font-size:12px">No outstanding payments</div>');
   html += '<div style="display:flex;justify-content:space-between;padding:10px 0 0;border-top:2px solid #ffffff12">';
-  html += '<span style="font-weight:700">Total Outstanding</span><span class="mono" style="font-weight:700;font-size:15px;color:#38bdf8">GBP ' + fmt(total) + '</span></div></div>';
+  html += '<span style="font-weight:700">Total Outstanding</span><span class="mono" style="font-weight:700;font-size:15px;color:#38bdf8">GBP '+fmt(total)+'</span></div></div>';
   html += '<div class="card" style="padding:16px"><div style="font-size:13px;font-weight:600;margin-bottom:10px;color:#38bdf8">Relationship Summary</div>';
   html += '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:12px">';
   [{l:"Payments Made",v:settled},{l:"Currencies Traded",v:ccySet.join(", ")},{l:"Suppliers Managed",v:SUPPLIERS.length},{l:"Hedged Positions",v:fwds}].forEach(function(x) {
-    html += '<div><div style="font-size:10px;color:#475569;margin-bottom:2px">' + x.l + '</div><div style="font-size:16px;font-weight:700">' + x.v + '</div></div>';
+    html += '<div><div style="font-size:10px;color:#475569;margin-bottom:2px">'+x.l+'</div><div style="font-size:16px;font-weight:700">'+x.v+'</div></div>';
   });
   html += '</div></div></div>';
   return html;
 }
+
+// ── TAB: BY CURRENCY ─────────────────────────────────────────────────────
 
 function renderCurrency(d) {
   var html = '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(270px,1fr));gap:12px">';
@@ -470,27 +675,29 @@ function renderCurrency(d) {
     var pU = v.total > 0 ? ((v.unhedged/v.total)*100).toFixed(0) : "0";
     html += '<div class="card" style="padding:16px">';
     html += '<div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">';
-    html += '<div style="width:32px;height:32px;border-radius:6px;background:#1e293b;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:#94a3b8">' + c + '</div>';
-    html += '<div><div style="font-size:17px;font-weight:700">' + c + '</div><div style="font-size:11px;color:#475569">GBP/' + c + '</div></div>';
-    html += '<div style="margin-left:auto"><div style="font-size:18px;font-weight:700">GBP ' + fmt(v.total) + '</div></div></div>';
+    html += '<div style="width:32px;height:32px;border-radius:6px;background:#1e293b;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:#94a3b8">'+c+'</div>';
+    html += '<div><div style="font-size:17px;font-weight:700">'+c+'</div><div style="font-size:11px;color:#475569">GBP/'+c+'</div></div>';
+    html += '<div style="margin-left:auto"><div style="font-size:18px;font-weight:700">GBP '+fmt(v.total)+'</div></div></div>';
     html += '<div style="height:8px;border-radius:4px;background:#0f172a;display:flex;overflow:hidden;margin-bottom:10px">';
-    html += '<div style="width:' + pD + '%;background:#22c55e"></div><div style="width:' + pF + '%;background:#f59e0b"></div><div style="width:' + pU + '%;background:#ef4444"></div></div>';
+    html += '<div style="width:'+pD+'%;background:#22c55e"></div><div style="width:'+pF+'%;background:#f59e0b"></div><div style="width:'+pU+'%;background:#ef4444"></div></div>';
     html += '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-bottom:10px">';
     [{l:"Settled",v:v.settled,c:"#22c55e",p:pD},{l:"Hedged",v:v.fwd,c:"#f59e0b",p:pF},{l:"Open",v:v.unhedged,c:"#ef4444",p:pU}].forEach(function(x) {
-      html += '<div style="text-align:center"><div style="font-size:10px;color:#475569">' + x.l + '</div><div style="font-size:13px;font-weight:600;color:' + x.c + '">GBP ' + fmt(x.v) + '</div><div style="font-size:9px;color:#475569">' + x.p + '%</div></div>';
+      html += '<div style="text-align:center"><div style="font-size:10px;color:#475569">'+x.l+'</div><div style="font-size:13px;font-weight:600;color:'+x.c+'">GBP '+fmt(x.v)+'</div><div style="font-size:9px;color:#475569">'+x.p+'%</div></div>';
     });
     html += '</div>';
     if (d.wavg[c]) {
       html += '<div style="background:#0f172a;border-radius:6px;padding:8px 10px;font-size:11px">';
-      html += '<div style="display:flex;justify-content:space-between"><span style="color:#94a3b8">Wt Avg</span><span class="mono" style="font-weight:600">' + fmtD(d.wavg[c],4) + '</span></div>';
-      html += '<div style="display:flex;justify-content:space-between;margin-top:2px"><span style="color:#94a3b8">Spot</span><span class="mono" style="color:#64748b">' + fmtD(SPOT[c],4) + '</span></div></div>';
+      html += '<div style="display:flex;justify-content:space-between"><span style="color:#94a3b8">Wt Avg</span><span class="mono" style="font-weight:600">'+fmtD(d.wavg[c],4)+'</span></div>';
+      html += '<div style="display:flex;justify-content:space-between;margin-top:2px"><span style="color:#94a3b8">Spot</span><span class="mono" style="color:#64748b">'+fmtD(SPOT[c],4)+'</span></div></div>';
     }
-    html += '<div style="margin-top:8px;font-size:10px;color:#475569">' + SUPPLIERS.filter(function(s){ return s.ccy===c; }).map(function(s){ return s.name; }).join(", ") + '</div>';
+    html += '<div style="margin-top:8px;font-size:10px;color:#475569">'+SUPPLIERS.filter(function(s){ return s.ccy===c; }).map(function(s){ return s.name; }).join(", ")+'</div>';
     html += '</div>';
   });
   html += '</div>';
   return html;
 }
+
+// ── AUTH ──────────────────────────────────────────────────────────────────
 
 function doLogin() {
   var email = document.getElementById("em").value;
@@ -507,6 +714,11 @@ function doLogin() {
   }).then(function(r){ return r.json(); }).then(function(data) {
     if (data.access_token) {
       sessionStorage.setItem("sb_token", data.access_token);
+      // Decode JWT to get user email for change log
+      try {
+        var payload = JSON.parse(atob(data.access_token.split(".")[1]));
+        CURRENT_USER = payload.email || email;
+      } catch(e) { CURRENT_USER = email; }
       loadDashboard();
     } else {
       err.textContent = data.error_description || "Invalid email or password";
@@ -534,11 +746,19 @@ function loadDashboard() {
     SUPPLIERS = buildSuppliers(results[0], results[1]);
     document.getElementById("loading").style.display = "none";
     document.getElementById("app").style.display     = "block";
+    // Recover user email from stored token if page was refreshed
+    if (!CURRENT_USER) {
+      try {
+        var token   = sessionStorage.getItem("sb_token");
+        var payload = JSON.parse(atob(token.split(".")[1]));
+        CURRENT_USER = payload.email || "";
+      } catch(e) {}
+    }
     render();
   }).catch(function(e) {
     document.getElementById("loading").innerHTML =
       '<div style="color:#ef4444;font-size:14px;font-weight:600">Could not load data</div>' +
-      '<div style="color:#64748b;font-size:12px">' + e.message + '</div>';
+      '<div style="color:#64748b;font-size:12px">'+e.message+'</div>';
   });
 }
 

@@ -288,8 +288,10 @@ function saveEdit() {
 
   Promise.all([patchPromise, logPromise])
     .then(function(results) {
-      var allOk = results.every(function(r){ return r.ok !== false; });
-      if (!allOk) throw new Error("Supabase returned an error — check RLS policies.");
+      var failed = results.filter(function(r){ return r.ok === false; });
+      if (failed.length > 0) {
+        return failed[0].text().then(function(t){ throw new Error(t); });
+      }
 
       // Update local state so UI reflects changes immediately
       SUPPLIERS.forEach(function(s) {

@@ -125,7 +125,33 @@ td { padding:8px 6px; border-bottom:1px solid #ffffff06; }
 <script>
 var SB_URL = "https://mkviozvkuvsdmusexbcv.supabase.co";
 var SB_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1rdmlvenZrdXZzZG11c2V4YmN2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzgwOTk2MzksImV4cCI6MjA5MzY3NTYzOX0.2DPSkw3LLrTsoUvzBPry36j-mfwwHihtiZps7CWSAu4";
-var SPOT = {EUR:1.1483, USD:1.356, ZAR:22.19, THB:43.3};
+
+// ── SPOT RATES ────────────────────────────────────────────────────────────
+// Seeded with reasonable fallbacks; overwritten by live fetch before first render.
+var SPOT = { EUR: 1.1483, USD: 1.356, ZAR: 22.19, THB: 43.3 };
+var SPOT_UPDATED = null;
+var SPOT_STALE = false; // true if last fetch failed
+
+function fetchSpotRates() {
+  return fetch("https://open.er-api.com/v6/latest/GBP")
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+      if (data.result === "success") {
+        SPOT.EUR = data.rates.EUR;
+        SPOT.USD = data.rates.USD;
+        SPOT.ZAR = data.rates.ZAR;
+        SPOT.THB = data.rates.THB;
+        SPOT_UPDATED = new Date().toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
+        SPOT_STALE = false;
+      }
+    })
+    .catch(function(e) {
+      console.warn("Spot rate fetch failed — using last known values:", e);
+      SPOT_STALE = true;
+    });
+}
+// ─────────────────────────────────────────────────────────────────────────
+
 var TODAY = new Date();
 var SUPPLIERS = [];
 var activeTab = "overview";
@@ -189,7 +215,6 @@ function sbWrite(method, path, body) {
     },
     body: JSON.stringify(body)
   }).then(function(r) {
-    // If JWT expired, refresh silently and retry once
     if (r.status === 401 || r.status === 403) {
       return r.json().then(function(errBody) {
         var msg = (errBody && errBody.message) || "";
@@ -205,15 +230,13 @@ function sbWrite(method, path, body) {
               },
               body: JSON.stringify(body)
             });
-          }).catch(function(e) {
-            // Refresh failed — force sign-out
+          }).catch(function() {
             sessionStorage.removeItem("sb_token");
             sessionStorage.removeItem("sb_refresh");
             alert("Your session has expired. Please sign in again.");
             location.reload();
           });
         }
-        // Not a token issue — return a fake failed response with the error text
         return {ok: false, _errMsg: msg || JSON.stringify(errBody)};
       });
     }
@@ -342,13 +365,11 @@ function saveEdit() {
   });
 
   Promise.all([patchPromise, logPromise]).then(function(results) {
-    // Check for errors — results may be Response objects or plain {ok:true}
     var failures = results.filter(function(r){ return r && r.ok===false; });
     if (failures.length>0) {
       var msg = failures[0]._errMsg || "Save failed — check Supabase logs.";
       throw new Error(msg);
     }
-    // Update local state immediately
     SUPPLIERS.forEach(function(s) {
       s.payments.forEach(function(p) {
         if (p.id===EDIT_TARGET.id) {
@@ -391,13 +412,19 @@ function render() {
   var bPnl=0;
   SUPPLIERS.forEach(function(s){ s.payments.forEach(function(p){ if(p.rate&&budgets[s.ccy]) bPnl+=(p.fcyAmt/budgets[s.ccy])-(p.fcyAmt/p.rate); }); });
 
+  // Spot rate display — show timestamp and stale warning if fetch failed
+  var rateStr = "EUR "+fmtD(SPOT.EUR,4)+" - USD "+fmtD(SPOT.USD,4)+" - ZAR "+fmtD(SPOT.ZAR,2)+" - THB "+fmtD(SPOT.THB,2);
+  var rateSubStr = SPOT_STALE
+    ? '<span style="color:#ef444480"> — live feed unavailable, using last known rates</span>'
+    : (SPOT_UPDATED ? '<span style="color:#22c55e60"> — updated '+SPOT_UPDATED+'</span>' : '');
+
   var html='<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:20px;flex-wrap:wrap;gap:12px">';
   html+='<div><div class="mono" style="font-size:10px;letter-spacing:3px;color:#475569;text-transform:uppercase">FX Command Centre</div>';
   html+='<h1 style="font-size:28px;font-weight:700;margin:4px 0 0;background:linear-gradient(135deg,#38bdf8,#818cf8);-webkit-background-clip:text;-webkit-text-fill-color:transparent">Flooglebinder Ltd</h1>';
   html+='<div style="font-size:12px;color:#475569;margin-top:2px">Travel Operator - Multi-Currency Payment Management</div></div>';
   html+='<div style="text-align:right;display:flex;flex-direction:column;align-items:flex-end;gap:6px">';
   html+='<div class="mono" style="background:#1e293b;border-radius:6px;padding:6px 12px;font-size:11px;color:#94a3b8">'+todayStr+'</div>';
-  html+='<div class="mono" style="font-size:10px;color:#475569">EUR '+fmtD(SPOT.EUR,4)+' - USD '+fmtD(SPOT.USD,4)+' - ZAR '+fmtD(SPOT.ZAR,2)+' - THB '+fmtD(SPOT.THB,2)+'</div>';
+  html+='<div class="mono" style="font-size:10px;color:#475569">'+rateStr+rateSubStr+'</div>';
   html+='<button onclick="signOut()" style="padding:4px 10px;border-radius:4px;border:1px solid #334155;background:transparent;color:#64748b;font-size:11px;cursor:pointer">Sign out</button>';
   html+='</div></div>';
 
@@ -691,17 +718,29 @@ document.addEventListener("keydown",function(e){ if(e.key==="Enter") doLogin(); 
 function loadDashboard() {
   document.getElementById("login").style.display="none";
   document.getElementById("loading").style.display="flex";
+
+  // Fetch spot rates and Supabase data in parallel
   Promise.all([
+    fetchSpotRates(),
     sbFetch("suppliers?client_id=eq.flooglebinder&order=name"),
     sbFetch("payments?client_id=eq.flooglebinder&order=due_date")
   ]).then(function(results){
-    SUPPLIERS=buildSuppliers(results[0],results[1]);
+    // results[0] is undefined (fetchSpotRates resolves with no value) — that's fine
+    SUPPLIERS = buildSuppliers(results[1], results[2]);
     document.getElementById("loading").style.display="none";
     document.getElementById("app").style.display="block";
     if (!CURRENT_USER) {
       try { var t=getToken(); var pl=JSON.parse(atob(t.split(".")[1])); CURRENT_USER=pl.email||""; } catch(e){}
     }
     render();
+
+    // Refresh spot rates every 15 minutes; re-render if dashboard is visible
+    setInterval(function() {
+      fetchSpotRates().then(function() {
+        if (document.getElementById("app").style.display === "block") render();
+      });
+    }, 15 * 60 * 1000);
+
   }).catch(function(e){
     document.getElementById("loading").innerHTML=
       '<div style="color:#ef4444;font-size:14px;font-weight:600">Could not load data</div>'+

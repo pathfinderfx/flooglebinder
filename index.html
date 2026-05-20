@@ -45,6 +45,9 @@ td { padding:8px 6px; border-bottom:1px solid #ffffff06; }
 .modal-input:focus { border-color:#38bdf8; }
 .modal-select { width:100%; padding:8px 10px; border-radius:6px; border:1px solid #334155; background:#0f172a; color:#e2e8f0; font-size:13px; font-family:'DM Sans',sans-serif; outline:none; }
 .modal-select:focus { border-color:#38bdf8; }
+.log-change-pill { display:inline-block; padding:2px 7px; border-radius:4px; font-size:10px; font-family:'DM Mono',monospace; background:#1e293b; color:#94a3b8; margin:1px 0; white-space:nowrap; }
+.log-change-pill .arrow { color:#475569; margin:0 3px; }
+.log-change-pill .to-val { color:#38bdf8; font-weight:500; }
 </style>
 </head>
 <body>
@@ -127,10 +130,9 @@ var SB_URL = "https://mkviozvkuvsdmusexbcv.supabase.co";
 var SB_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1rdmlvenZrdXZzZG11c2V4YmN2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzgwOTk2MzksImV4cCI6MjA5MzY3NTYzOX0.2DPSkw3LLrTsoUvzBPry36j-mfwwHihtiZps7CWSAu4";
 
 // ── SPOT RATES ────────────────────────────────────────────────────────────
-// Seeded with reasonable fallbacks; overwritten by live fetch before first render.
 var SPOT = { EUR: 1.1483, USD: 1.356, ZAR: 22.19, THB: 43.3 };
 var SPOT_UPDATED = null;
-var SPOT_STALE = false; // true if last fetch failed
+var SPOT_STALE = false;
 
 function fetchSpotRates() {
   return fetch("https://open.er-api.com/v6/latest/GBP")
@@ -154,6 +156,7 @@ function fetchSpotRates() {
 
 var TODAY = new Date();
 var SUPPLIERS = [];
+var CHANGE_LOG = null; // null = not yet fetched; [] = fetched but empty
 var activeTab = "overview";
 var openSupp = null;
 var budgets = {EUR:1.16, USD:1.30, ZAR:23.0, THB:44.0};
@@ -244,11 +247,63 @@ function sbWrite(method, path, body) {
   });
 }
 
+// ── CHANGE LOG ────────────────────────────────────────────────────────────
+
+function loadChangeLog() {
+  return sbFetch("change_log?order=created_at.desc&limit=500")
+    .then(function(rows) {
+      CHANGE_LOG = Array.isArray(rows) ? rows : [];
+    })
+    .catch(function(e) {
+      console.warn("Could not load change log:", e);
+      CHANGE_LOG = [];
+    });
+}
+
+// Build a fast lookup: payment id → {supplier, ref, ccy}
+function buildPaymentMap() {
+  var map = {};
+  SUPPLIERS.forEach(function(s) {
+    s.payments.forEach(function(p) {
+      map[p.id] = { supplier: s.name, ref: p.ref, ccy: s.ccy };
+    });
+  });
+  return map;
+}
+
+var CHANGE_FIELD_LABELS = { status: "Status", fcy_amount: "Amount", due_date: "Due Date" };
+
+function formatChangeVal(field, val) {
+  if (val === null || val === undefined || val === "") return "none";
+  if (field === "status") return ST[val] ? ST[val].label : val;
+  if (field === "due_date") return val ? fmtDate(val) : "TBC";
+  return String(val);
+}
+
+function renderChangePills(changes) {
+  if (!changes || typeof changes !== "object") return '<span style="color:#475569;font-size:11px">Note only</span>';
+  var keys = Object.keys(changes);
+  if (keys.length === 0) return '<span style="color:#475569;font-size:11px">Note only</span>';
+  return keys.map(function(k) {
+    var c = changes[k];
+    var label = CHANGE_FIELD_LABELS[k] || k;
+    var from  = formatChangeVal(k, c.from);
+    var to    = formatChangeVal(k, c.to);
+    return '<span class="log-change-pill">'+label+': <span style="color:#64748b">'+from+'</span><span class="arrow">→</span><span class="to-val">'+to+'</span></span>';
+  }).join(" ");
+}
+
 // ── FORMATTING ────────────────────────────────────────────────────────────
 
 function fmt(n)      { return n != null ? n.toLocaleString("en-GB",{minimumFractionDigits:2,maximumFractionDigits:2}) : "--"; }
 function fmtD(n, d)  { d=d||2; return n != null ? n.toLocaleString("en-GB",{minimumFractionDigits:d,maximumFractionDigits:d}) : "--"; }
 function fmtDate(d)  { if (!d||d==="TBC") return "TBC"; return new Date(d).toLocaleDateString("en-GB",{day:"2-digit",month:"short",year:"2-digit"}); }
+function fmtDateTime(ts) {
+  if (!ts) return "--";
+  var dt = new Date(ts);
+  return dt.toLocaleDateString("en-GB",{day:"2-digit",month:"short",year:"2-digit"}) +
+    " " + dt.toLocaleTimeString("en-GB",{hour:"2-digit",minute:"2-digit"});
+}
 function daysUntil(d){ if (!d||d==="TBC") return Infinity; return Math.ceil((new Date(d)-TODAY)/86400000); }
 function gbpVal(fcy,rate,ccy){ return fcy/(rate||SPOT[ccy]); }
 
@@ -379,6 +434,8 @@ function saveEdit() {
         }
       });
     });
+    // Invalidate log cache so it reloads fresh next time the tab is opened
+    CHANGE_LOG = null;
     closeModal(); render();
   }).catch(function(e) {
     err.textContent   = e.message||"Save failed. Please try again.";
@@ -390,10 +447,25 @@ function saveEdit() {
 
 // ── RENDER ────────────────────────────────────────────────────────────────
 
-function setTab(t)          { activeTab=t; render(); }
+function setTab(t) {
+  activeTab = t;
+  if (t === "log" && CHANGE_LOG === null) {
+    render(); // show loading state immediately
+    loadChangeLog().then(render);
+  } else {
+    render();
+  }
+}
+
 function toggleSupp(name)   { openSupp=openSupp===name?null:name; render(); }
 function updateBudget(c,v)  { budgets[c]=parseFloat(v)||0; render(); }
 function signOut()          { sessionStorage.clear(); location.reload(); }
+
+function refreshLog() {
+  CHANGE_LOG = null;
+  render();
+  loadChangeLog().then(render);
+}
 
 function editBtn(p, ccy) {
   var due=(p.due&&p.due!=="TBC")?p.due:"";
@@ -412,7 +484,6 @@ function render() {
   var bPnl=0;
   SUPPLIERS.forEach(function(s){ s.payments.forEach(function(p){ if(p.rate&&budgets[s.ccy]) bPnl+=(p.fcyAmt/budgets[s.ccy])-(p.fcyAmt/p.rate); }); });
 
-  // Spot rate display — show timestamp and stale warning if fetch failed
   var rateStr = "EUR "+fmtD(SPOT.EUR,4)+" - USD "+fmtD(SPOT.USD,4)+" - ZAR "+fmtD(SPOT.ZAR,2)+" - THB "+fmtD(SPOT.THB,2);
   var rateSubStr = SPOT_STALE
     ? '<span style="color:#ef444480"> — live feed unavailable, using last known rates</span>'
@@ -464,7 +535,7 @@ function render() {
   }
 
   html+='<div class="tabs">';
-  [["overview","Suppliers"],["rates","Rates & Budget"],["upcoming","Upcoming"],["cashflow","Cash Flow"],["currency","By Currency"]].forEach(function(t){
+  [["overview","Suppliers"],["rates","Rates & Budget"],["upcoming","Upcoming"],["cashflow","Cash Flow"],["currency","By Currency"],["log","Audit Log"]].forEach(function(t){
     html+='<button class="tab'+(activeTab===t[0]?" active":"")+'" onclick="setTab(\''+t[0]+'\')">'+t[1]+'</button>';
   });
   html+='</div>';
@@ -480,6 +551,7 @@ function renderTab(d,pS,pF,pU,totDep,bPnl) {
   if (activeTab==="upcoming") return renderUpcoming(d,totDep);
   if (activeTab==="cashflow") return renderCashflow(d);
   if (activeTab==="currency") return renderCurrency(d);
+  if (activeTab==="log")      return renderLog();
   return "";
 }
 
@@ -685,6 +757,69 @@ function renderCurrency(d) {
   return html;
 }
 
+function renderLog() {
+  // Loading state
+  if (CHANGE_LOG === null) {
+    return '<div class="card" style="padding:40px;text-align:center">' +
+      '<div style="color:#475569;font-size:13px">Loading audit log...</div></div>';
+  }
+
+  var pMap = buildPaymentMap();
+  var html = '<div class="card" style="overflow:hidden">';
+
+  // Header row
+  html += '<div style="padding:14px 16px;border-bottom:1px solid #ffffff08;display:flex;justify-content:space-between;align-items:center">';
+  html += '<div>';
+  html += '<div style="font-size:14px;font-weight:600">Audit Log</div>';
+  html += '<div style="font-size:11px;color:#64748b;margin-top:2px">All manual changes to payment records — newest first</div>';
+  html += '</div>';
+  html += '<button onclick="refreshLog()" style="padding:5px 12px;border-radius:5px;border:1px solid #334155;background:transparent;color:#64748b;font-size:11px;cursor:pointer;font-family:\'DM Sans\',sans-serif">&#8635; Refresh</button>';
+  html += '</div>';
+
+  if (CHANGE_LOG.length === 0) {
+    html += '<div style="padding:40px;text-align:center;color:#475569;font-size:13px">No changes recorded yet.</div>';
+    html += '</div>';
+    return html;
+  }
+
+  html += '<div style="overflow-x:auto"><table style="min-width:700px"><thead><tr>';
+  html += '<th>When</th><th>User</th><th>Supplier</th><th>Ref</th><th>Changes</th><th>Note</th>';
+  html += '</tr></thead><tbody>';
+
+  CHANGE_LOG.forEach(function(row) {
+    var payment = pMap[row.payment_id] || {};
+    var supplier = payment.supplier || '<span style="color:#475569">unknown</span>';
+    var ref      = payment.ref      || '<span class="mono" style="font-size:9px;color:#334155">'+(row.payment_id||"--")+'</span>';
+
+    // Parse changes — may arrive as object or JSON string
+    var changes = row.changes;
+    if (typeof changes === "string") {
+      try { changes = JSON.parse(changes); } catch(e) { changes = null; }
+    }
+
+    // Shorten email to just the local part for display
+    var user = (row.changed_by || "unknown").replace(/@.*$/, "");
+
+    html += '<tr>';
+    html += '<td class="mono" style="font-size:11px;color:#64748b;white-space:nowrap">'+fmtDateTime(row.created_at)+'</td>';
+    html += '<td style="font-size:12px;font-weight:500;color:#94a3b8;white-space:nowrap">'+user+'</td>';
+    html += '<td style="font-size:12px;font-weight:500">'+supplier+'</td>';
+    html += '<td class="mono" style="font-size:11px;color:#94a3b8">'+ref+'</td>';
+    html += '<td style="max-width:320px">'+renderChangePills(changes)+'</td>';
+    html += '<td style="font-size:11px;color:#64748b;font-style:'+(row.note?"normal":"italic")+'">'+(row.note||'<span style="color:#334155">—</span>')+'</td>';
+    html += '</tr>';
+  });
+
+  html += '</tbody></table></div>';
+
+  // Footer: row count
+  html += '<div style="padding:10px 16px;border-top:1px solid #ffffff08;display:flex;justify-content:flex-end">';
+  html += '<span style="font-size:10px;color:#334155">'+CHANGE_LOG.length+' record'+(CHANGE_LOG.length!==1?"s":"")+'</span>';
+  html += '</div>';
+  html += '</div>';
+  return html;
+}
+
 // ── AUTH ──────────────────────────────────────────────────────────────────
 
 function doLogin() {
@@ -719,13 +854,11 @@ function loadDashboard() {
   document.getElementById("login").style.display="none";
   document.getElementById("loading").style.display="flex";
 
-  // Fetch spot rates and Supabase data in parallel
   Promise.all([
     fetchSpotRates(),
     sbFetch("suppliers?client_id=eq.flooglebinder&order=name"),
     sbFetch("payments?client_id=eq.flooglebinder&order=due_date")
   ]).then(function(results){
-    // results[0] is undefined (fetchSpotRates resolves with no value) — that's fine
     SUPPLIERS = buildSuppliers(results[1], results[2]);
     document.getElementById("loading").style.display="none";
     document.getElementById("app").style.display="block";
@@ -734,7 +867,6 @@ function loadDashboard() {
     }
     render();
 
-    // Refresh spot rates every 15 minutes; re-render if dashboard is visible
     setInterval(function() {
       fetchSpotRates().then(function() {
         if (document.getElementById("app").style.display === "block") render();

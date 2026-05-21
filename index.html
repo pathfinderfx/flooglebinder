@@ -155,10 +155,8 @@ function fetchSpotRates() {
       SPOT_STALE = true;
     });
 }
-// ─────────────────────────────────────────────────────────────────────────
 
 // ── SETTLED TOGGLE ────────────────────────────────────────────────────────
-// Default: hide settled. Persists for the session.
 var hideSettled = sessionStorage.getItem("hideSettled") !== "false";
 
 function toggleSettled() {
@@ -166,7 +164,6 @@ function toggleSettled() {
   sessionStorage.setItem("hideSettled", hideSettled ? "true" : "false");
   render();
 }
-// ─────────────────────────────────────────────────────────────────────────
 
 var TODAY = new Date();
 var SUPPLIERS = [];
@@ -191,11 +188,7 @@ var ST = {
 
 function isHedged(s)  { return HEDGED_STATUSES.indexOf(s) >= 0; }
 function isSettled(s) { return SETTLED_STATUSES.indexOf(s) >= 0; }
-
-// Returns true if this payment should be visible given current filter
-function isVisible(status) {
-  return !hideSettled || !isSettled(status);
-}
+function isVisible(status) { return !hideSettled || !isSettled(status); }
 
 // ── AUTH HELPERS ──────────────────────────────────────────────────────────
 
@@ -270,21 +263,14 @@ function sbWrite(method, path, body) {
 
 function loadChangeLog() {
   return sbFetch("change_log?order=created_at.desc&limit=500")
-    .then(function(rows) {
-      CHANGE_LOG = Array.isArray(rows) ? rows : [];
-    })
-    .catch(function(e) {
-      console.warn("Could not load change log:", e);
-      CHANGE_LOG = [];
-    });
+    .then(function(rows) { CHANGE_LOG = Array.isArray(rows) ? rows : []; })
+    .catch(function(e) { console.warn("Could not load change log:", e); CHANGE_LOG = []; });
 }
 
 function buildPaymentMap() {
   var map = {};
   SUPPLIERS.forEach(function(s) {
-    s.payments.forEach(function(p) {
-      map[p.id] = { supplier: s.name, ref: p.ref, ccy: s.ccy };
-    });
+    s.payments.forEach(function(p) { map[p.id] = { supplier: s.name, ref: p.ref, ccy: s.ccy }; });
   });
   return map;
 }
@@ -323,7 +309,15 @@ function fmtDateTime(ts) {
     " " + dt.toLocaleTimeString("en-GB",{hour:"2-digit",minute:"2-digit"});
 }
 function daysUntil(d){ if (!d||d==="TBC") return Infinity; return Math.ceil((new Date(d)-TODAY)/86400000); }
-function gbpVal(fcy,rate,ccy){ return fcy/(rate||SPOT[ccy]); }
+
+// ── GBP VALUE ─────────────────────────────────────────────────────────────
+// Uses stored gbp_amount from trade confirmation email ("You Sold: GBP X")
+// when available. Falls back to fcy / rate for unhedged payments where no
+// gbp_amount has been stored yet.
+function gbpVal(fcy, rate, ccy, gbpAmt) {
+  if (gbpAmt) return gbpAmt;
+  return fcy / (rate || SPOT[ccy]);
+}
 
 // ── DATA ──────────────────────────────────────────────────────────────────
 
@@ -340,6 +334,7 @@ function buildSuppliers(sRows, pRows) {
           type:     type,
           fcyAmt:   parseFloat(p.fcy_amount)  || 0,
           rate:     p.forward_rate    ? parseFloat(p.forward_rate) : null,
+          gbpAmt:   p.gbp_amount      ? parseFloat(p.gbp_amount)  : null,
           status:   p.status          || "unhedged",
           due:      p.due_date        || "TBC",
           fwd:      p.trade_id        || null,
@@ -358,10 +353,8 @@ function calcData() {
   var cc={},upcoming=[],deps=[],mats=[],cf={};
   SUPPLIERS.forEach(function(s) {
     s.payments.forEach(function(p) {
-      // Respect hideSettled filter throughout all calculations
       if (!isVisible(p.status)) return;
-
-      var g=gbpVal(p.fcyAmt,p.rate,s.ccy); tG+=g; tPay++;
+      var g=gbpVal(p.fcyAmt,p.rate,s.ccy,p.gbpAmt); tG+=g; tPay++;
       if (!cc[s.ccy]) cc[s.ccy]={total:0,settled:0,fwd:0,unhedged:0,rates:[]};
       cc[s.ccy].total+=g;
       if (p.rate) cc[s.ccy].rates.push({rate:p.rate,gbp:g});
@@ -469,12 +462,8 @@ function saveEdit() {
 
 function setTab(t) {
   activeTab = t;
-  if (t === "log" && CHANGE_LOG === null) {
-    render();
-    loadChangeLog().then(render);
-  } else {
-    render();
-  }
+  if (t === "log" && CHANGE_LOG === null) { render(); loadChangeLog().then(render); }
+  else { render(); }
 }
 
 function toggleSupp(name)   { openSupp=openSupp===name?null:name; render(); }
@@ -517,17 +506,16 @@ function render() {
   html+='<button onclick="signOut()" style="padding:4px 10px;border-radius:4px;border:1px solid #334155;background:transparent;color:#64748b;font-size:11px;cursor:pointer">Sign out</button>';
   html+='</div></div>';
 
-  // KPI cards — label changes to reflect filter state
   var exposureLabel = hideSettled ? "Active Exposure" : "Total Exposure";
   var exposureSub   = hideSettled
     ? SUPPLIERS.filter(function(s){ return s.payments.some(function(p){ return !isSettled(p.status); }); }).length+" suppliers - "+d.tPay+" active"
     : SUPPLIERS.length+" suppliers - "+d.tPay+" payments";
 
   var kpis=[
-    {l:exposureLabel, v:"GBP "+fmt(d.tG), s:exposureSub,                    a:"#38bdf8"},
-    {l:"Hedged",      v:"GBP "+fmt(d.fG), s:pF+"% rate-locked",             a:"#f59e0b"},
-    {l:"Unhedged",    v:"GBP "+fmt(d.uG), s:pU+"% exposed",                 a:"#ef4444"},
-    {l:"Margin Held", v:"GBP "+fmt(totDep),s:d.deps.length+" deposits",     a:"#818cf8"}
+    {l:exposureLabel, v:"GBP "+fmt(d.tG), s:exposureSub,              a:"#38bdf8"},
+    {l:"Hedged",      v:"GBP "+fmt(d.fG), s:pF+"% rate-locked",       a:"#f59e0b"},
+    {l:"Unhedged",    v:"GBP "+fmt(d.uG), s:pU+"% exposed",           a:"#ef4444"},
+    {l:"Margin Held", v:"GBP "+fmt(totDep),s:d.deps.length+" deposits",a:"#818cf8"}
   ];
   html+='<div class="kpi-grid">';
   kpis.forEach(function(k){
@@ -537,7 +525,6 @@ function render() {
   });
   html+='</div>';
 
-  // Coverage bar — only shows settled segment when not hiding settled
   var covered=(parseFloat(pS)+parseFloat(pF)).toFixed(1);
   html+='<div class="card" style="padding:12px 16px;margin-bottom:14px">';
   html+='<div style="display:flex;justify-content:space-between;margin-bottom:6px"><span style="font-size:12px;font-weight:600">Hedging Coverage</span>';
@@ -564,7 +551,6 @@ function render() {
     html+='</div></div>';
   }
 
-  // Tabs bar with settled toggle on the right
   html+='<div class="tabs-bar">';
   html+='<div class="tabs">';
   [["overview","Suppliers"],["rates","Rates & Budget"],["upcoming","Upcoming"],["cashflow","Cash Flow"],["currency","By Currency"],["log","Audit Log"]].forEach(function(t){
@@ -595,13 +581,14 @@ function renderTab(d,pS,pF,pU,totDep,bPnl) {
 function renderOverview() {
   var html="";
   SUPPLIERS.forEach(function(s) {
-    // When hiding settled, skip suppliers where all payments are settled
     var visiblePayments = s.payments.filter(function(p){ return isVisible(p.status); });
     if (visiblePayments.length === 0) return;
-
     var isOpen=openSupp===s.name;
     var settled=0,fwd=0,unhedged=0;
-    visiblePayments.forEach(function(p){ var g=gbpVal(p.fcyAmt,p.rate,s.ccy); if(isSettled(p.status)) settled+=g; else if(isHedged(p.status)) fwd+=g; else unhedged+=g; });
+    visiblePayments.forEach(function(p){
+      var g=gbpVal(p.fcyAmt,p.rate,s.ccy,p.gbpAmt);
+      if(isSettled(p.status)) settled+=g; else if(isHedged(p.status)) fwd+=g; else unhedged+=g;
+    });
     var sT=settled+fwd+unhedged;
     var allDone=visiblePayments.every(function(p){ return isSettled(p.status); });
     var hasOpen=visiblePayments.some(function(p){ return !isSettled(p.status)&&!isHedged(p.status); });
@@ -624,7 +611,7 @@ function renderOverview() {
       html+='<th>Ref</th><th>Type</th><th style="text-align:right">'+s.ccy+'</th><th style="text-align:right">Rate</th><th style="text-align:right">GBP Equiv</th><th>Due</th><th>Status</th><th>Trade Ref</th><th>CC Pay Ref</th><th></th>';
       html+='</tr></thead><tbody>';
       visiblePayments.forEach(function(p) {
-        var st=ST[p.status]||ST.unhedged, g=gbpVal(p.fcyAmt,p.rate,s.ccy), dd=daysUntil(p.due);
+        var st=ST[p.status]||ST.unhedged, g=gbpVal(p.fcyAmt,p.rate,s.ccy,p.gbpAmt), dd=daysUntil(p.due);
         var urg=dd>=0&&dd<=14&&!isSettled(p.status);
         html+='<tr>';
         html+='<td>'+p.ref+'</td><td style="color:#94a3b8">'+p.type+'</td>';
@@ -642,9 +629,7 @@ function renderOverview() {
     }
     html+='</div>';
   });
-  if (!html) {
-    html='<div class="card" style="padding:40px;text-align:center;color:#475569;font-size:13px">No active payments. Toggle "Settled hidden" off to view history.</div>';
-  }
+  if (!html) html='<div class="card" style="padding:40px;text-align:center;color:#475569;font-size:13px">No active payments. Toggle "Settled hidden" off to view history.</div>';
   return html;
 }
 
@@ -706,7 +691,8 @@ function renderRates(d, bPnl) {
 function renderUpcoming(d, totDep) {
   var rows="";
   d.upcoming.forEach(function(p){
-    var dd=daysUntil(p.due),st=ST[p.status]||ST.unhedged,g=gbpVal(p.fcyAmt,p.rate,p.ccy);
+    var dd=daysUntil(p.due),st=ST[p.status]||ST.unhedged;
+    var g=gbpVal(p.fcyAmt,p.rate,p.ccy,p.gbpAmt);
     var gDue=p.status==="deposit_received"?g*0.95:g;
     var dayStr=dd===Infinity?"TBC":dd<0?Math.abs(dd)+"d ago":dd+"d";
     var dayCol=dd===Infinity?"#475569":dd<0?"#ef4444":dd<=14?"#f59e0b":"#94a3b8";
@@ -772,10 +758,10 @@ function renderCashflow(d) {
 }
 
 function renderCurrency(d) {
-  var html='<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(270px,1fr));gap:12px">';
   if (!Object.keys(d.cc).length) {
     return '<div class="card" style="padding:40px;text-align:center;color:#475569;font-size:13px">No active payments. Toggle "Settled hidden" off to view history.</div>';
   }
+  var html='<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(270px,1fr));gap:12px">';
   Object.keys(d.cc).forEach(function(c){
     var v=d.cc[c];
     var pD=v.total>0?((v.settled/v.total)*100).toFixed(0):"0";
@@ -807,8 +793,7 @@ function renderCurrency(d) {
 
 function renderLog() {
   if (CHANGE_LOG === null) {
-    return '<div class="card" style="padding:40px;text-align:center">' +
-      '<div style="color:#475569;font-size:13px">Loading audit log...</div></div>';
+    return '<div class="card" style="padding:40px;text-align:center"><div style="color:#475569;font-size:13px">Loading audit log...</div></div>';
   }
   var pMap = buildPaymentMap();
   var html = '<div class="card" style="overflow:hidden">';

@@ -503,11 +503,11 @@ function refreshLog()       { CHANGE_LOG = null; render(); loadChangeLog().then(
 
 function editBtn(p, ccy) {
   var due=(p.due&&p.due!=="TBC")?p.due:"";
+  var ccRef = (p.ccPayRef||"").replace(/'/g, "\\'");
+  var tradeId = (p.fwd||"").replace(/'/g, "\\'");
   return '<button class="edit-btn" onclick="editPayment(\''+p.id+'\',\''+
     (p.supplier||"").replace(/'/g,"\\'")+'\',\''+p.ref.replace(/'/g,"\\'")+'\',\''+
-    ccy+'\',\''+p.status+'\','+p.fcyAmt+',\''+due+'\',\''+
-    (p.ccPayRef||"").replace(/'/g,"\\'")+'\',\''+
-    (p.fwd||"").replace(/'/g,"\\'")+'\')">&#9998; Edit</button>';
+    ccy+'\',\''+p.status+'\','+p.fcyAmt+',\''+due+'\',\''+ccRef+'\',\''+tradeId+'\')">&#9998; Edit</button>';
 }
 
 function render() {

@@ -98,6 +98,14 @@ td { padding:8px 6px; border-bottom:1px solid #ffffff06; }
       <input id="edit-ref" type="text" class="modal-input" placeholder="e.g. INV-2026-001">
     </div>
     <div style="margin-bottom:14px">
+      <label class="modal-label">CC Payment Ref</label>
+      <input id="edit-cc-ref" type="text" class="modal-input" placeholder="e.g. CC-PAY-12345">
+    </div>
+    <div style="margin-bottom:14px">
+      <label class="modal-label">Trade/FWD Ref</label>
+      <input id="edit-trade-id" type="text" class="modal-input" placeholder="e.g. TRD-2026-001">
+    </div>
+    <div style="margin-bottom:14px">
       <label class="modal-label">Status</label>
       <select id="edit-status" class="modal-select">
         <option value="unhedged">Unhedged</option>
@@ -280,7 +288,7 @@ function buildPaymentMap() {
   return map;
 }
 
-var CHANGE_FIELD_LABELS = { invoice_refs: "Payment Ref", status: "Status", fcy_amount: "Amount", due_date: "Due Date" };
+var CHANGE_FIELD_LABELS = { invoice_refs: "Payment Ref", cc_pay_ref: "CC Pay Ref", trade_id: "Trade Ref", status: "Status", fcy_amount: "Amount", due_date: "Due Date" };
 
 function formatChangeVal(field, val) {
   if (val === null || val === undefined || val === "") return "none";
@@ -385,11 +393,13 @@ function calcData() {
 
 // ── EDIT MODAL ────────────────────────────────────────────────────────────
 
-function editPayment(id, supplier, ref, ccy, status, amount, due) {
-  EDIT_TARGET={id:id,supplier:supplier,ref:ref,ccy:ccy,oldStatus:status,oldAmount:amount,oldDue:due,oldRef:ref};
+function editPayment(id, supplier, ref, ccy, status, amount, due, ccPayRef, tradeId) {
+  EDIT_TARGET={id:id,supplier:supplier,ref:ref,ccy:ccy,oldStatus:status,oldAmount:amount,oldDue:due,oldRef:ref,oldCcPayRef:ccPayRef,oldTradeId:tradeId};
   document.getElementById("modal-title").textContent   = supplier+" — "+ref;
   document.getElementById("modal-sub").textContent     = "Edit payment details";
   document.getElementById("edit-ref").value            = ref;
+  document.getElementById("edit-cc-ref").value         = ccPayRef || "";
+  document.getElementById("edit-trade-id").value       = tradeId || "";
   document.getElementById("edit-status").value         = status;
   document.getElementById("edit-ccy-label").textContent= ccy;
   document.getElementById("edit-amount").value         = amount;
@@ -412,6 +422,8 @@ document.getElementById("edit-modal").addEventListener("click",function(e){ if(e
 function saveEdit() {
   if (!EDIT_TARGET) return;
   var newRef    = document.getElementById("edit-ref").value.trim();
+  var newCcRef  = document.getElementById("edit-cc-ref").value.trim();
+  var newTradeId= document.getElementById("edit-trade-id").value.trim();
   var newStatus = document.getElementById("edit-status").value;
   var newAmount = parseFloat(document.getElementById("edit-amount").value);
   var newDue    = document.getElementById("edit-due").value || null;
@@ -421,6 +433,8 @@ function saveEdit() {
 
   var patch={}, changes={};
   if (newRef!==EDIT_TARGET.oldRef)         { patch.invoice_refs=newRef;  changes.invoice_refs={from:EDIT_TARGET.oldRef,to:newRef}; }
+  if (newCcRef!==EDIT_TARGET.oldCcPayRef)  { patch.cc_pay_ref=newCcRef;   changes.cc_pay_ref={from:EDIT_TARGET.oldCcPayRef,to:newCcRef}; }
+  if (newTradeId!==EDIT_TARGET.oldTradeId) { patch.trade_id=newTradeId;   changes.trade_id={from:EDIT_TARGET.oldTradeId,to:newTradeId}; }
   if (newStatus!==EDIT_TARGET.oldStatus)  { patch.status=newStatus;    changes.status={from:EDIT_TARGET.oldStatus,to:newStatus}; }
   if (newAmount!==EDIT_TARGET.oldAmount)  { patch.fcy_amount=newAmount; changes.fcy_amount={from:EDIT_TARGET.oldAmount,to:newAmount}; }
   if (newDue!==EDIT_TARGET.oldDue)        { patch.due_date=newDue;      changes.due_date={from:EDIT_TARGET.oldDue,to:newDue}; }
@@ -456,6 +470,8 @@ function saveEdit() {
       s.payments.forEach(function(p) {
         if (p.id===EDIT_TARGET.id) {
           if (patch.invoice_refs) p.ref=newRef;
+          if (patch.cc_pay_ref)   p.ccPayRef=newCcRef;
+          if (patch.trade_id)     p.fwd=newTradeId;
           if (patch.status)     p.status=newStatus;
           if (patch.fcy_amount) p.fcyAmt=newAmount;
           if ("due_date" in patch) p.due=newDue||"TBC";
@@ -489,7 +505,9 @@ function editBtn(p, ccy) {
   var due=(p.due&&p.due!=="TBC")?p.due:"";
   return '<button class="edit-btn" onclick="editPayment(\''+p.id+'\',\''+
     (p.supplier||"").replace(/'/g,"\\'")+'\',\''+p.ref.replace(/'/g,"\\'")+'\',\''+
-    ccy+'\',\''+p.status+'\','+p.fcyAmt+',\''+due+'\')">&#9998; Edit</button>';
+    ccy+'\',\''+p.status+'\','+p.fcyAmt+',\''+due+'\',\''+
+    (p.ccPayRef||"").replace(/'/g,"\\'")+'\',\''+
+    (p.fwd||"").replace(/'/g,"\\'")+'\')">&#9998; Edit</button>';
 }
 
 function render() {

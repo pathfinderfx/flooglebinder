@@ -236,44 +236,26 @@ function sbFetch(path) {
 }
 
 function sbWrite(method, path, body) {
-  var token = getToken();
-  var useAnonKey = (path.indexOf("change_log") >= 0); // Use anon key for audit logs
   return fetch(SB_URL + "/rest/v1/" + path, {
     method: method,
     headers: {
       "apikey":        SB_KEY,
-      "Authorization": "Bearer " + (useAnonKey ? SB_KEY : (token || SB_KEY)),
+      "Authorization": "Bearer " + SB_KEY,
       "Content-Type":  "application/json",
       "Prefer":        "return=minimal"
     },
     body: JSON.stringify(body)
   }).then(function(r) {
-    if (r.status === 401 || r.status === 403) {
+    if (!r.ok) {
       return r.json().then(function(errBody) {
-        var msg = (errBody && errBody.message) || "";
-        if (msg.indexOf("JWT expired") >= 0 || msg.indexOf("expired") >= 0) {
-          return refreshSession().then(function(newToken) {
-            return fetch(SB_URL + "/rest/v1/" + path, {
-              method: method,
-              headers: {
-                "apikey":        SB_KEY,
-                "Authorization": "Bearer " + newToken,
-                "Content-Type":  "application/json",
-                "Prefer":        "return=minimal"
-              },
-              body: JSON.stringify(body)
-            });
-          }).catch(function() {
-            sessionStorage.removeItem("sb_token");
-            sessionStorage.removeItem("sb_refresh");
-            alert("Your session has expired. Please sign in again.");
-            location.reload();
-          });
-        }
-        return {ok: false, _errMsg: msg || JSON.stringify(errBody)};
+        console.error("Write error:", r.status, errBody);
+        return {ok: false, _errMsg: (errBody && errBody.message) || "Request failed"};
       });
     }
-    return r;
+    return {ok: true};
+  }).catch(function(e) {
+    console.error("Write exception:", e);
+    return {ok: false, _errMsg: e.message};
   });
 }
 

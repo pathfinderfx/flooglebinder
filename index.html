@@ -238,11 +238,12 @@ function sbFetch(path) {
 
 function sbWrite(method, path, body) {
   var token = getToken();
+  var useAnonKey = (path.indexOf("change_log") >= 0); // Use anon key for audit logs
   return fetch(SB_URL + "/rest/v1/" + path, {
     method: method,
     headers: {
       "apikey":        SB_KEY,
-      "Authorization": "Bearer " + (token || SB_KEY),
+      "Authorization": "Bearer " + (useAnonKey ? SB_KEY : (token || SB_KEY)),
       "Content-Type":  "application/json",
       "Prefer":        "return=minimal"
     },
@@ -462,6 +463,8 @@ function saveEdit() {
 
   Promise.all([patchPromise, logPromise]).then(function(results) {
     console.log("Save results:", results);
+    console.log("Patch result:", results[0]);
+    console.log("Log result:", results[1]);
     var failures = results.filter(function(r){ return r && r.ok===false; });
     if (failures.length>0) {
       var msg = failures[0]._errMsg || "Save failed — check Supabase logs.";
@@ -470,6 +473,9 @@ function saveEdit() {
     }
     if (results[1] && results[1].status && results[1].status >= 400) {
       console.error("Change log insert failed with status", results[1].status, results[1]);
+    }
+    if (results[1] && results[1].error) {
+      console.error("Change log error:", results[1].error);
     }
     SUPPLIERS.forEach(function(s) {
       s.payments.forEach(function(p) {

@@ -841,7 +841,7 @@ function renderLog() {
     if (typeof changes === "string") { try { changes = JSON.parse(changes); } catch(e) { changes = null; } }
     var user = (row.changed_by || "unknown").replace(/@.*$/, "");
     html += '<tr>';
-    html += '<td class="mono" style="font-size:11px;color:#64748b;white-space:nowrap">'+fmtDateTime(row.created_at)+'</td>';
+    html += '<td class="mono" style="font-size:11px;color:#64748b;white-space:nowrap">'+fmtDateTime(row.changed_at)+'</td>';
     html += '<td style="font-size:12px;font-weight:500;color:#94a3b8;white-space:nowrap">'+user+'</td>';
     html += '<td style="font-size:12px;font-weight:500">'+supplier+'</td>';
     html += '<td class="mono" style="font-size:11px;color:#94a3b8">'+ref+'</td>';

@@ -262,7 +262,7 @@ function sbWrite(method, path, body) {
 // ── CHANGE LOG ────────────────────────────────────────────────────────────
 
 function loadChangeLog() {
-  return sbFetch("change_log?order=created_at.desc&limit=500")
+  return sbFetch("change_log?order=changed_at.desc&limit=500")
     .then(function(rows) { CHANGE_LOG = Array.isArray(rows) ? rows : []; })
     .catch(function(e) { console.warn("Could not load change log:", e); CHANGE_LOG = []; });
 }

@@ -946,7 +946,7 @@ function loadDashboard() {
     fetchSpotRates(),
     sbFetch("suppliers?client_id=eq.flooglebinder&order=name"),
     sbFetch("payments?client_id=eq.flooglebinder&order=due_date"),
-    sbFetch("payments?supplier_id=is.null&order=due_date")
+    sbFetch("payments?supplier_id=is.null&payment_type=eq.supplier-invoice&order=due_date")
   ]).then(function(results){
     var floogPayments = results[2] || [];
     var unmatchedPayments = results[3] || [];

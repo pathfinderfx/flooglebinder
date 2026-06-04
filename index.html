@@ -93,6 +93,12 @@ td { padding:8px 6px; border-bottom:1px solid #ffffff06; }
       </div>
       <button onclick="closeModal()" style="background:transparent;border:none;color:#64748b;font-size:22px;cursor:pointer;line-height:1;padding:0 2px">&times;</button>
     </div>
+    <div style="margin-bottom:14px;display:none" id="supplier-field">
+      <label class="modal-label">Assign Supplier</label>
+      <select id="edit-supplier" class="modal-select">
+        <option value="">-- Select a supplier --</option>
+      </select>
+    </div>
     <div style="margin-bottom:14px">
       <label class="modal-label">Invoice/Payment Ref</label>
       <input id="edit-ref" type="text" class="modal-input" placeholder="e.g. INV-2026-001">
@@ -403,8 +409,27 @@ function calcData() {
 
 function editPayment(id, supplier, ref, ccy, status, amount, due, ccPayRef, tradeId) {
   EDIT_TARGET={id:id,supplier:supplier,ref:ref,ccy:ccy,oldStatus:status,oldAmount:amount,oldDue:due,oldRef:ref,oldCcPayRef:ccPayRef,oldTradeId:tradeId};
-  document.getElementById("modal-title").textContent   = supplier+" — "+ref;
-  document.getElementById("modal-sub").textContent     = "Edit payment details";
+  
+  var isUnmatched = supplier === "UNMATCHED";
+  
+  document.getElementById("modal-title").textContent   = isUnmatched ? "Assign Supplier to " + ref : supplier+" — "+ref;
+  document.getElementById("modal-sub").textContent     = isUnmatched ? "Select a supplier from the list" : "Edit payment details";
+  
+  // Show/hide supplier field
+  document.getElementById("supplier-field").style.display = isUnmatched ? "block" : "none";
+  
+  // Populate supplier dropdown if unmatched
+  if (isUnmatched) {
+    var supplierSelect = document.getElementById("edit-supplier");
+    supplierSelect.innerHTML = '<option value="">-- Select a supplier --</option>';
+    SUPPLIERS.forEach(function(s) {
+      var opt = document.createElement("option");
+      opt.value = s.id;
+      opt.textContent = s.name + " (" + s.ccy + ")";
+      supplierSelect.appendChild(opt);
+    });
+  }
+  
   document.getElementById("edit-ref").value            = ref;
   document.getElementById("edit-cc-ref").value         = ccPayRef || "";
   document.getElementById("edit-trade-id").value       = tradeId || "";
@@ -415,7 +440,7 @@ function editPayment(id, supplier, ref, ccy, status, amount, due, ccPayRef, trad
   document.getElementById("edit-note").value           = "";
   document.getElementById("edit-user").textContent     = CURRENT_USER||"unknown";
   document.getElementById("modal-err").style.display   = "none";
-  document.getElementById("modal-save-btn").textContent= "Save Changes";
+  document.getElementById("modal-save-btn").textContent= isUnmatched ? "Assign Supplier" : "Save Changes";
   document.getElementById("modal-save-btn").disabled   = false;
   document.getElementById("edit-modal").classList.add("open");
 }
@@ -429,6 +454,20 @@ document.getElementById("edit-modal").addEventListener("click",function(e){ if(e
 
 function saveEdit() {
   if (!EDIT_TARGET) return;
+  
+  var isUnmatched = EDIT_TARGET.supplier === "UNMATCHED";
+  var newSupplierId = null;
+  
+  // Handle supplier assignment for unmatched invoices
+  if (isUnmatched) {
+    newSupplierId = document.getElementById("edit-supplier").value;
+    if (!newSupplierId) {
+      document.getElementById("modal-err").textContent = "Please select a supplier";
+      document.getElementById("modal-err").style.display = "block";
+      return;
+    }
+  }
+  
   var newRef    = document.getElementById("edit-ref").value.trim();
   var newCcRef  = document.getElementById("edit-cc-ref").value.trim();
   var newTradeId= document.getElementById("edit-trade-id").value.trim();
@@ -440,6 +479,10 @@ function saveEdit() {
   var err       = document.getElementById("modal-err");
 
   var patch={}, changes={};
+  if (isUnmatched && newSupplierId) { 
+    patch.supplier_id = newSupplierId; 
+    changes.supplier_id = {from: null, to: newSupplierId}; 
+  }
   if (newRef!==EDIT_TARGET.oldRef)         { patch.invoice_refs=newRef;  changes.invoice_refs={from:EDIT_TARGET.oldRef,to:newRef}; }
   if (newCcRef!==EDIT_TARGET.oldCcPayRef)  { patch.cc_pay_ref=newCcRef;   changes.cc_pay_ref={from:EDIT_TARGET.oldCcPayRef,to:newCcRef}; }
   if (newTradeId!==EDIT_TARGET.oldTradeId) { patch.trade_id=newTradeId;   changes.trade_id={from:EDIT_TARGET.oldTradeId,to:newTradeId}; }
@@ -702,7 +745,9 @@ function renderReview() {
     html += '<td>'+p.ccy+'</td>';
     html += '<td class="mono" style="color:#94a3b8">'+fmtDate(p.due)+'</td>';
     html += '<td><span class="badge" style="background:'+st.bg+';color:'+st.color+'">'+st.label+'</span></td>';
-    html += '<td><button class="edit-btn" onclick="openEdit(\''+p.id+'\',\''+p.ref.replace(/'/g,"\\'")+'\')" style="margin-left:auto">Assign Supplier</button></td>';
+    html += '<td><button class="edit-btn" onclick="editPayment(\''+p.id+'\',\'UNMATCHED\',\''+p.ref.replace(/'/g,"\\'")+'\'';
+    html += ',\''+p.ccy+'\',\''+p.status+'\','+p.fcyAmt+',\''+p.due.replace(/'/g,"\\'")+'\'';
+    html += ',\'\',\'\')" style="margin-left:auto">Assign Supplier</button></td>';
     html += '</tr>';
   });
   

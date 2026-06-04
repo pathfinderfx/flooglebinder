@@ -321,7 +321,28 @@ function gbpVal(fcy, rate, ccy, gbpAmt) {
 
 // ── DATA ──────────────────────────────────────────────────────────────────
 
+var UNMATCHED_PAYMENTS = [];
+
 function buildSuppliers(sRows, pRows) {
+  UNMATCHED_PAYMENTS = pRows.filter(function(p){ return !p.supplier_id; }).map(function(p) {
+    var type = p.payment_type || "--";
+    if (p.payment_pct) type = type.charAt(0).toUpperCase()+type.slice(1)+" "+p.payment_pct+"%";
+    return {
+      id:       p.id,
+      ref:      p.invoice_refs    || "--",
+      type:     type,
+      fcyAmt:   parseFloat(p.fcy_amount)  || 0,
+      rate:     p.forward_rate    ? parseFloat(p.forward_rate) : null,
+      gbpAmt:   p.gbp_amount      ? parseFloat(p.gbp_amount)  : null,
+      status:   p.status          || "unhedged",
+      due:      p.due_date        || "TBC",
+      ccy:      p.currency        || "GBP",
+      fwd:      p.trade_id        || null,
+      ccPayRef: p.cc_pay_ref      || null,
+      notes:    p.notes           || null
+    };
+  });
+  
   return sRows.map(function(s) {
     return {
       id: s.id, name: s.name, ccy: s.currency, pair: s.ccy_pair,
@@ -577,7 +598,7 @@ function render() {
 
   html+='<div class="tabs-bar">';
   html+='<div class="tabs">';
-  [["overview","Suppliers"],["rates","Rates & Budget"],["upcoming","Upcoming"],["cashflow","Cash Flow"],["currency","By Currency"],["log","Audit Log"]].forEach(function(t){
+  [["overview","Suppliers"],["review","Review"],["rates","Rates & Budget"],["upcoming","Upcoming"],["cashflow","Cash Flow"],["currency","By Currency"],["log","Audit Log"]].forEach(function(t){
     html+='<button class="tab'+(activeTab===t[0]?" active":"")+'" onclick="setTab(\''+t[0]+'\')">'+t[1]+'</button>';
   });
   html+='</div>';
@@ -594,6 +615,7 @@ function render() {
 
 function renderTab(d,pS,pF,pU,totDep,bPnl) {
   if (activeTab==="overview") return renderOverview();
+  if (activeTab==="review")   return renderReview();
   if (activeTab==="rates")    return renderRates(d,bPnl);
   if (activeTab==="upcoming") return renderUpcoming(d,totDep);
   if (activeTab==="cashflow") return renderCashflow(d);
@@ -654,6 +676,37 @@ function renderOverview() {
     html+='</div>';
   });
   if (!html) html='<div class="card" style="padding:40px;text-align:center;color:#475569;font-size:13px">No active payments. Toggle "Settled hidden" off to view history.</div>';
+  return html;
+}
+
+function renderReview() {
+  if (UNMATCHED_PAYMENTS.length === 0) {
+    return '<div class="card" style="padding:40px;text-align:center;color:#475569;font-size:13px">All invoices have been matched to suppliers.</div>';
+  }
+  
+  var html = '<div class="card" style="padding:16px;margin-bottom:14px;border-left:3px solid #f59e0b">';
+  html += '<div style="font-weight:600;color:#f59e0b;margin-bottom:8px">⚠ Unmatched Invoices</div>';
+  html += '<div style="font-size:12px;color:#94a3b8">'+UNMATCHED_PAYMENTS.length+' invoice'+(UNMATCHED_PAYMENTS.length>1?"s":"");
+  html += ' awaiting supplier assignment. Click edit to assign a supplier.</div></div>';
+  
+  html += '<div class="card"><div class="supplier-detail"><table style="min-width:700px"><thead><tr>';
+  html += '<th>Ref</th><th>Type</th><th style="text-align:right">Amount</th><th>Currency</th><th>Due Date</th><th>Status</th><th></th>';
+  html += '</tr></thead><tbody>';
+  
+  UNMATCHED_PAYMENTS.forEach(function(p) {
+    var st = ST[p.status] || ST.unhedged;
+    html += '<tr>';
+    html += '<td><span class="mono" style="color:#38bdf8">'+p.ref+'</span></td>';
+    html += '<td style="color:#94a3b8">'+p.type+'</td>';
+    html += '<td class="mono" style="text-align:right">'+fmt(p.fcyAmt)+'</td>';
+    html += '<td>'+p.ccy+'</td>';
+    html += '<td class="mono" style="color:#94a3b8">'+fmtDate(p.due)+'</td>';
+    html += '<td><span class="badge" style="background:'+st.bg+';color:'+st.c+'">'+st.l+'</span></td>';
+    html += '<td><button class="edit-btn" onclick="openEdit(\''+p.id+'\',\''+p.ref.replace(/'/g,"\\'")+'\')" style="margin-left:auto">Assign Supplier</button></td>';
+    html += '</tr>';
+  });
+  
+  html += '</tbody></table></div></div>';
   return html;
 }
 

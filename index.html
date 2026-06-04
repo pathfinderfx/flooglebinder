@@ -945,9 +945,13 @@ function loadDashboard() {
   Promise.all([
     fetchSpotRates(),
     sbFetch("suppliers?client_id=eq.flooglebinder&order=name"),
-    sbFetch("payments?order=due_date")
+    sbFetch("payments?client_id=eq.flooglebinder&order=due_date"),
+    sbFetch("payments?supplier_id=is.null&order=due_date")
   ]).then(function(results){
-    SUPPLIERS = buildSuppliers(results[1], results[2]);
+    var floogPayments = results[2] || [];
+    var unmatchedPayments = results[3] || [];
+    var allPayments = floogPayments.concat(unmatchedPayments);
+    SUPPLIERS = buildSuppliers(results[1], allPayments);
     document.getElementById("loading").style.display="none";
     document.getElementById("app").style.display="block";
     if (!CURRENT_USER) {

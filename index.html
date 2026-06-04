@@ -701,7 +701,7 @@ function renderReview() {
     html += '<td class="mono" style="text-align:right">'+fmt(p.fcyAmt)+'</td>';
     html += '<td>'+p.ccy+'</td>';
     html += '<td class="mono" style="color:#94a3b8">'+fmtDate(p.due)+'</td>';
-    html += '<td><span class="badge" style="background:'+st.bg+';color:'+st.c+'">'+st.l+'</span></td>';
+    html += '<td><span class="badge" style="background:'+st.bg+';color:'+st.color+'">'+st.label+'</span></td>';
     html += '<td><button class="edit-btn" onclick="openEdit(\''+p.id+'\',\''+p.ref.replace(/'/g,"\\'")+'\')" style="margin-left:auto">Assign Supplier</button></td>';
     html += '</tr>';
   });

@@ -480,8 +480,12 @@ function saveEdit() {
 
   var patch={}, changes={};
   if (isUnmatched && newSupplierId) { 
-    patch.supplier_id = newSupplierId; 
-    changes.supplier_id = {from: null, to: newSupplierId}; 
+    patch.supplier_id = newSupplierId;
+    patch.client_id = 'flooglebinder';
+    patch.needs_review = false;
+    changes.supplier_id = {from: null, to: newSupplierId};
+    changes.client_id = {from: null, to: 'flooglebinder'};
+    changes.needs_review = {from: true, to: false};
   }
   if (newRef!==EDIT_TARGET.oldRef)         { patch.invoice_refs=newRef;  changes.invoice_refs={from:EDIT_TARGET.oldRef,to:newRef}; }
   if (newCcRef!==EDIT_TARGET.oldCcPayRef)  { patch.cc_pay_ref=newCcRef;   changes.cc_pay_ref={from:EDIT_TARGET.oldCcPayRef,to:newCcRef}; }
@@ -542,6 +546,29 @@ function saveEdit() {
     btn.textContent   = "Save Changes";
     btn.disabled      = false;
   });
+}
+
+function dismissPayment(paymentId) {
+  if (!confirm("Mark this invoice as reviewed and remove from list?")) return;
+  
+  var patch = {
+    needs_review: false,
+    updated_at: new Date().toISOString()
+  };
+  
+  sbWrite("PATCH", "payments?id=eq." + paymentId, patch)
+    .then(function(result) {
+      if (result && result.ok === false) {
+        alert("Failed to dismiss invoice: " + (result._errMsg || "Check Supabase logs"));
+        return;
+      }
+      // Remove from UNMATCHED_PAYMENTS array
+      UNMATCHED_PAYMENTS = UNMATCHED_PAYMENTS.filter(function(p) { return p.id !== paymentId; });
+      render();
+    })
+    .catch(function(e) {
+      alert("Error: " + (e.message || "Failed to dismiss"));
+    });
 }
 
 // ── RENDER ────────────────────────────────────────────────────────────────
@@ -747,7 +774,8 @@ function renderReview() {
     html += '<td><span class="badge" style="background:'+st.bg+';color:'+st.color+'">'+st.label+'</span></td>';
     html += '<td><button class="edit-btn" onclick="editPayment(\''+p.id+'\',\'UNMATCHED\',\''+p.ref.replace(/'/g,"\\'")+'\'';
     html += ',\''+p.ccy+'\',\''+p.status+'\','+p.fcyAmt+',\''+p.due.replace(/'/g,"\\'")+'\'';
-    html += ',\'\',\'\')" style="margin-left:auto">Assign Supplier</button></td>';
+    html += ',\'\',\'\')" style="margin-left:auto">Assign Supplier</button>';
+    html += '<button class="edit-btn" onclick="dismissPayment(\''+p.id+'\')" style="margin-left:8px;background:#64748b">Dismiss</button></td>';
     html += '</tr>';
   });
   

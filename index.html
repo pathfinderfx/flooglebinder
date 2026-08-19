@@ -232,7 +232,7 @@ function refreshSession() {
 
 function sbFetch(path) {
   return fetch(SB_URL + "/rest/v1/" + path, {
-    headers: {"apikey": SB_KEY, "Authorization": "Bearer " + SB_KEY}
+    headers: {"apikey": SB_KEY, "Authorization": "Bearer " + (getToken() || SB_KEY)}
   }).then(function(r){ 
     if (!r.ok) {
       console.warn("Supabase fetch failed with status", r.status, "for path", path);
@@ -246,7 +246,7 @@ function sbWrite(method, path, body) {
     method: method,
     headers: {
       "apikey":        SB_KEY,
-      "Authorization": "Bearer " + SB_KEY,
+      "Authorization": "Bearer " + (getToken() || SB_KEY),
       "Content-Type":  "application/json",
       "Prefer":        "return=minimal"
     },

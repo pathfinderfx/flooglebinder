@@ -389,7 +389,7 @@ function calcData() {
       else if (isHedged(p.status)) { fG+=g; cc[s.ccy].fwd+=g; }
       else                         { uG+=g; cc[s.ccy].unhedged+=g; }
       if (!isSettled(p.status)) upcoming.push(Object.assign({},p,{supplier:s.name,ccy:s.ccy}));
-      if (p.dep) deps.push({supplier:s.name,ref:p.ref,amount:p.dep,due:p.depDue,paid:daysUntil(p.depDue)<0});
+      if (p.dep && !isSettled(p.status)) deps.push({supplier:s.name,ref:p.ref,amount:p.dep,due:p.depDue,paid:daysUntil(p.depDue)<0});
       if (isHedged(p.status)) { var d=daysUntil(p.due); if (d<=30&&d>=0) mats.push(Object.assign({},p,{supplier:s.name,ccy:s.ccy,days:d})); }
       var m=p.due&&p.due!=="TBC"?p.due.substring(0,7):null;
       if (m&&!isSettled(p.status)) cf[m]=(cf[m]||0)+g;
@@ -1021,10 +1021,10 @@ function loadDashboard() {
     sbFetch("payments?client_id=eq.flooglebinder&order=due_date"),
     sbFetch("payments?supplier_id=is.null&payment_type=eq.supplier-invoice&order=due_date")
   ]).then(function(results){
-    var floogPayments = results[2] || [];
-    var unmatchedPayments = results[3] || [];
+    var floogPayments = Array.isArray(results[2]) ? results[2] : [];
+    var unmatchedPayments = Array.isArray(results[3]) ? results[3] : [];
     var allPayments = floogPayments.concat(unmatchedPayments);
-    SUPPLIERS = buildSuppliers(results[1], allPayments);
+    SUPPLIERS = buildSuppliers(Array.isArray(results[1]) ? results[1] : [], allPayments);
     document.getElementById("loading").style.display="none";
     document.getElementById("app").style.display="block";
     if (!CURRENT_USER) {

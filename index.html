@@ -1018,12 +1018,9 @@ function loadDashboard() {
   Promise.all([
     fetchSpotRates(),
     sbFetch("suppliers?client_id=eq.flooglebinder&order=name"),
-    sbFetch("payments?client_id=eq.flooglebinder&order=due_date"),
-    sbFetch("payments?supplier_id=is.null&payment_type=eq.supplier-invoice&order=due_date")
+    sbFetch("payments?client_id=eq.flooglebinder&order=due_date")
   ]).then(function(results){
-    var floogPayments = Array.isArray(results[2]) ? results[2] : [];
-    var unmatchedPayments = Array.isArray(results[3]) ? results[3] : [];
-    var allPayments = floogPayments.concat(unmatchedPayments);
+    var allPayments = Array.isArray(results[2]) ? results[2] : [];
     SUPPLIERS = buildSuppliers(Array.isArray(results[1]) ? results[1] : [], allPayments);
     document.getElementById("loading").style.display="none";
     document.getElementById("app").style.display="block";
@@ -1031,7 +1028,8 @@ function loadDashboard() {
       try { var t=getToken(); var pl=JSON.parse(atob(t.split(".")[1])); CURRENT_USER=pl.email||""; } catch(e){}
     }
     render();
-    setInterval(function() {
+    if (window.__refreshTimer) clearInterval(window.__refreshTimer);
+    window.__refreshTimer = setInterval(function() {
       fetchSpotRates().then(function() {
         if (document.getElementById("app").style.display === "block") render();
       });

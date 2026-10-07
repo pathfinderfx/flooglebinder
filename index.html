@@ -330,7 +330,7 @@ function gbpVal(fcy, rate, ccy, gbpAmt) {
 var UNMATCHED_PAYMENTS = [];
 
 function buildSuppliers(sRows, pRows) {
-  UNMATCHED_PAYMENTS = pRows.filter(function(p){ return !p.supplier_id && p.invoice_refs !== "TRADE-CONF"; }).map(function(p) {
+  UNMATCHED_PAYMENTS = pRows.filter(function(p){ return !p.supplier_id && p.invoice_refs !== "TRADE-CONF" && p.needs_review !== false; }).map(function(p) {
     var type = p.payment_type || "--";
     if (p.payment_pct) type = type.charAt(0).toUpperCase()+type.slice(1)+" "+p.payment_pct+"%";
     return {
